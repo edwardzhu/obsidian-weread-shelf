@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ShelfItem } from '../src/types';
 import {
 	filterAndGroupShelf,
+	formatActivityLabel,
 	toAudiobookListeningState,
 	toBookReadingState,
 } from '../src/utils/shelf-state';
@@ -151,5 +152,10 @@ describe('shelf state', () => {
 
 		expect(groups.map((group) => group.key)).toEqual(['2026', '2025', '2024', 'Not started']);
 		expect(groups.at(-1)?.items.map((item) => item.id)).toEqual(['audio-1', 'book-2']);
+	});
+
+	it('formats exact activity labels for card view models', () => {
+		expect(formatActivityLabel(book)).toBe('Last read 2026-01-09');
+		expect(formatActivityLabel(audio)).toBe('Not started');
 	});
 });

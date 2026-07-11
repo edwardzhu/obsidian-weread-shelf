@@ -77,6 +77,21 @@ export function filterAndGroupShelf(
 		}));
 }
 
+export function formatActivityLabel(item: ShelfItem): string {
+	if (item.lastActivityAt === undefined || item.lastActivityAt <= 0) {
+		return NOT_STARTED_KEY;
+	}
+
+	const date = new Intl.DateTimeFormat('en-CA', {
+		timeZone: 'America/New_York',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).format(new Date(item.lastActivityAt * 1000));
+
+	return item.kind === 'book' ? `Last read ${date}` : `Last listened ${date}`;
+}
+
 function matchesType(item: ShelfItem, type: ShelfFilterState['type']): boolean {
 	if (type === 'books') {
 		return item.kind === 'book';
