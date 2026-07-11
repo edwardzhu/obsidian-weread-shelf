@@ -1,0 +1,8 @@
+{
+  "id": "obsidian-weread-shelf",
+  "name": "WeRead Shelf",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Sync your WeRead shelf and personal reading notes.",
+  "isDesktopOnly": true
+}
