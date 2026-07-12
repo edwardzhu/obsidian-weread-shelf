@@ -11,6 +11,8 @@ import { PluginDataStore } from './storage/plugin-data-store';
 import type { ShelfItem } from './types';
 import { CreateNoteModal } from './ui/create-note-modal';
 import { SHELF_VIEW_TYPE, ShelfView } from './views/shelf-view';
+import { WEREAD_WEB_VIEW_TYPE, WereadWebView } from './views/web-view';
+import { getPcUrl } from './utils/parser';
 
 export default class WereadShelfPlugin extends Plugin {
 	private dataStore!: PluginDataStore;
@@ -43,6 +45,11 @@ export default class WereadShelfPlugin extends Plugin {
 				}),
 		);
 
+		this.registerView(
+			WEREAD_WEB_VIEW_TYPE,
+			(leaf) => new WereadWebView(leaf),
+		);
+
 		this.addSettingTab(
 			new WereadShelfSettingTab(this.app, this, {
 				getSettings: () => this.dataStore.getSettings(),
@@ -53,6 +60,9 @@ export default class WereadShelfPlugin extends Plugin {
 				},
 			}),
 		);
+		this.addRibbonIcon('book-open', 'Open WeRead shelf', () => {
+			void this.openShelfView();
+		});
 		registerCommands(this);
 		this.registerVaultIndexEvents();
 
@@ -67,6 +77,7 @@ export default class WereadShelfPlugin extends Plugin {
 
 	async onunload(): Promise<void> {
 		this.app.workspace.detachLeavesOfType(SHELF_VIEW_TYPE);
+		this.app.workspace.detachLeavesOfType(WEREAD_WEB_VIEW_TYPE);
 	}
 
 	async openShelfView(): Promise<void> {
@@ -123,10 +134,14 @@ export default class WereadShelfPlugin extends Plugin {
 
 	private async openWeread(item: ShelfItem): Promise<void> {
 		if (item.deepLink === undefined || item.deepLink === '') {
-			new Notice('This WeRead item has no link.');
+			new Notice('该书籍没有链接。');
 			return;
 		}
-		open(item.deepLink, this.dataStore.getSettings().webOpenTarget === 'window' ? '_blank' : '_self');
+		const url = getPcUrl(item.id);
+		const existing = this.app.workspace.getLeavesOfType(WEREAD_WEB_VIEW_TYPE);
+		const leaf = existing.length > 0 ? existing[0]! : this.app.workspace.getLeaf('split');
+		await leaf.setViewState({ type: WEREAD_WEB_VIEW_TYPE, state: { url }, active: true });
+		this.app.workspace.revealLeaf(leaf);
 	}
 
 	private async openOrCreateNote(item: ShelfItem): Promise<void> {

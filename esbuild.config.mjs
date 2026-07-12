@@ -2,14 +2,16 @@ import esbuild from 'esbuild';
 import { copyFileSync, mkdirSync } from 'fs';
 
 const watch = process.argv.includes('--watch');
-const outdir = 'dist';
+const outfile = watch ? 'main.js' : 'dist/main.js';
 
-mkdirSync(outdir, { recursive: true });
+if (!watch) {
+  mkdirSync('dist', { recursive: true });
+}
 
 const context = await esbuild.context({
   entryPoints: ['src/main.ts'],
   bundle: true,
-  outfile: `${outdir}/main.js`,
+  outfile,
   format: 'cjs',
   platform: 'browser',
   target: 'es2022',
@@ -25,6 +27,6 @@ if (watch) {
 } else {
   await context.rebuild();
   await context.dispose();
-  copyFileSync('manifest.json', `${outdir}/manifest.json`);
-  copyFileSync('styles.css', `${outdir}/styles.css`);
+  copyFileSync('manifest.json', 'dist/manifest.json');
+  copyFileSync('styles.css', 'dist/styles.css');
 }

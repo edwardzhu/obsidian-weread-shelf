@@ -1,35 +1,39 @@
 {
-  "name": "obsidian-weread-shelf",
-  "version": "1.0.0",
-  "description": "This is a community plugin for Obsidian to manage my syllabus of the books on the Tecent Weread Shelf",
-  "main": "dist/main.js",
-  "scripts": {
-    "build": "npm run lint && tsc --noEmit && node esbuild.config.mjs",
-    "dev": "node esbuild.config.mjs --watch",
-    "lint": "eslint . --ext .ts",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/edwardzhu/obsidian-weread-shelf.git"
-  },
-  "keywords": [],
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/edwardzhu/obsidian-weread-shelf/issues"
-  },
-  "homepage": "https://github.com/edwardzhu/obsidian-weread-shelf#readme",
-  "devDependencies": {
-    "@eslint/compat": "^2.1.0",
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^26.1.1",
-    "esbuild": "^0.28.1",
-    "eslint": "^10.7.0",
-    "eslint-plugin-obsidianmd": "^0.4.1",
-    "obsidian": "^1.13.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.63.0",
-    "vitest": "^4.1.10"
-  }
+	"name": "obsidian-weread-shelf",
+	"version": "1.0.0",
+	"description": "This is a community plugin for Obsidian to manage my syllabus of the books on the Tecent Weread Shelf",
+	"main": "dist/main.js",
+	"scripts": {
+		"build": "npm run lint && tsc --noEmit && node esbuild.config.mjs",
+		"dev": "node esbuild.config.mjs --watch",
+		"lint": "eslint . --ext .ts",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/edwardzhu/obsidian-weread-shelf.git"
+	},
+	"keywords": [],
+	"type": "commonjs",
+	"bugs": {
+		"url": "https://github.com/edwardzhu/obsidian-weread-shelf/issues"
+	},
+	"homepage": "https://github.com/edwardzhu/obsidian-weread-shelf#readme",
+	"devDependencies": {
+		"@eslint/compat": "^2.1.0",
+		"@eslint/js": "^10.0.1",
+		"@types/crypto-js": "^4.2.2",
+		"@types/node": "^26.1.1",
+		"esbuild": "^0.28.1",
+		"eslint": "^10.7.0",
+		"eslint-plugin-obsidianmd": "^0.4.1",
+		"obsidian": "^1.13.1",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.63.0",
+		"vitest": "^4.1.10"
+	},
+	"dependencies": {
+		"crypto-js": "^4.2.0"
+	}
 }

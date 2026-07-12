@@ -7,10 +7,7 @@ import {
 import type { ShelfSyncResult } from '../services/shelf-sync-service';
 import type { WereadShelfSettings } from '../settings';
 import type { ShelfCache, ShelfFilterState, ShelfItem } from '../types';
-import {
-	filterAndGroupShelf,
-	formatActivityLabel,
-} from '../utils/shelf-state';
+import { filterAndGroupShelf } from '../utils/shelf-state';
 
 export const SHELF_VIEW_TYPE = 'weread-shelf-view';
 
@@ -32,6 +29,8 @@ export class ShelfView extends ItemView {
 		sort: 'activity',
 	};
 	private cache: ShelfCache | null = null;
+	private searchEl: HTMLInputElement | null = null;
+	private contentAreaEl: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -45,7 +44,7 @@ export class ShelfView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return 'WeRead shelf';
+		return '微信读书书架';
 	}
 
 	async onOpen(): Promise<void> {
@@ -58,6 +57,8 @@ export class ShelfView extends ItemView {
 		if (this.cache === null) {
 			await this.tryInitialRefresh();
 		}
+		this.searchEl = null;
+		this.contentAreaEl = null;
 		this.render();
 	}
 
@@ -71,29 +72,31 @@ export class ShelfView extends ItemView {
 
 	private render(): void {
 		const root = this.contentEl;
-		root.empty();
-		root.addClass('weread-shelf');
 
-		const header = root.createDiv({ cls: 'weread-shelf__header' });
-		header.createEl('h2', { text: 'WeRead shelf' });
-		const syncButton = header.createEl('button', {
-			cls: 'clickable-icon weread-shelf__sync',
-			attr: { 'aria-label': 'Sync shelf' },
-		});
-		setIcon(syncButton, 'refresh-cw');
-		setTooltip(syncButton, 'Sync shelf');
-		syncButton.addEventListener('click', () => {
-			void this.syncAndRender();
-		});
+		if (!this.searchEl) {
+			root.empty();
+			root.addClass('weread-shelf');
+			this.renderControls(root);
+			this.contentAreaEl = root.createDiv({ cls: 'weread-shelf__content' });
+		}
+
+		this.renderContent();
+	}
+
+	private renderContent(): void {
+		const area = this.contentAreaEl!;
+		area.empty();
+
+		if (this.cache !== null) {
+			this.renderStats(area, this.cache);
+		}
 
 		if (this.cache === null) {
-			this.renderEmpty(root);
+			this.renderEmpty(area);
 			return;
 		}
 
-		this.renderStats(root, this.cache);
-		this.renderControls(root);
-		this.renderGroups(root, this.cache);
+		this.renderGroups(area, this.cache);
 	}
 
 	private async syncAndRender(): Promise<void> {
@@ -104,71 +107,77 @@ export class ShelfView extends ItemView {
 		}
 	}
 
-	private renderStats(root: HTMLElement, cache: ShelfCache): void {
-		const books = cache.items.filter((item) => item.kind === 'book').length;
-		const audiobooks = cache.items.filter((item) => item.kind === 'audiobook').length;
-		const stats = root.createDiv({ cls: 'weread-shelf__stats' });
-		stats.createSpan({ text: `${books} books` });
-		stats.createSpan({ text: `${audiobooks} audiobooks` });
-		stats.createSpan({
-			text: `Last synced ${new Date(cache.lastSuccessfulSyncAt).toLocaleString()}`,
-		});
+	private renderStats(parent: HTMLElement, cache: ShelfCache): void {
+		const notesCount = this.dependencies.getNoteText().size;
+		const now = Date.now();
+		const recentCutoff = 30 * 86400000;
+		const yearSet = new Set<number>();
+		let books = 0;
+		let recentCount = 0;
+
+		for (const item of cache.items) {
+			if (item.kind === 'book') books++;
+			if (item.lastActivityAt && item.lastActivityAt > 0) {
+				yearSet.add(new Date(item.lastActivityAt * 1000).getUTCFullYear());
+				if (now - item.lastActivityAt * 1000 < recentCutoff) recentCount++;
+			}
+		}
+
+		const syncDate = new Date(cache.lastSuccessfulSyncAt);
+		const daysDiff = Math.floor((now - syncDate.getTime()) / 86400000);
+		const syncLabel = daysDiff === 0 ? '今天' : `${daysDiff}天前`;
+
+		const stats = parent.createDiv({ cls: 'weread-shelf__stats' });
+		this.renderStatItem(stats, 'book-open', `${books} 本书`);
+		this.renderStatItem(stats, 'pencil', `${notesCount} 个笔记`);
+		this.renderStatItem(stats, 'calendar', `${yearSet.size} 年`);
+		this.renderStatItem(stats, 'clock', syncLabel);
+		this.renderStatItem(stats, 'refresh-cw', `${recentCount} 本`);
+	}
+
+	private renderStatItem(parent: HTMLElement, icon: string, text: string): void {
+		const item = parent.createDiv({ cls: 'weread-shelf__stat-item' });
+		const iconEl = item.createSpan({ cls: 'weread-shelf__stat-icon' });
+		setIcon(iconEl, icon);
+		item.createSpan({ text });
 	}
 
 	private renderControls(root: HTMLElement): void {
 		const controls = root.createDiv({ cls: 'weread-shelf__controls' });
 		const search = controls.createEl('input', {
 			cls: 'weread-shelf__search',
-			attr: { 'aria-label': 'Search shelf', placeholder: 'Search shelf' },
+			attr: { 'aria-label': '搜索书名或作者', placeholder: '搜索书名或作者' },
 		});
 		search.type = 'search';
 		search.value = this.filters.query;
-		search.addEventListener('input', () => {
+		this.searchEl = search;
+
+		let composing = false;
+		search.addEventListener('compositionstart', () => { composing = true; });
+		search.addEventListener('compositionend', () => {
+			composing = false;
 			this.filters = { ...this.filters, query: search.value };
-			this.render();
+			this.renderContent();
 		});
-
-		const filters = controls.createDiv({ cls: 'weread-shelf__filters' });
-		this.renderSegment(filters, 'type', [
-			['all', 'All'],
-			['books', 'Books'],
-			['audiobooks', 'Audiobooks'],
-		]);
-		this.renderSegment(filters, 'status', [
-			['active', 'Active'],
-			['all', 'All'],
-			['inProgress', 'In progress'],
-			['unread', 'Unread'],
-			['completed', 'Completed'],
-		]);
+		search.addEventListener('input', () => {
+			if (composing) return;
+			this.filters = { ...this.filters, query: search.value };
+			this.renderContent();
+		});
 	}
 
-	private renderSegment(
-		parent: HTMLElement,
-		key: 'type' | 'status',
-		options: Array<[ShelfFilterState[typeof key], string]>,
-	): void {
-		const segment = parent.createDiv({ cls: 'weread-shelf__segment' });
-		for (const [value, label] of options) {
-			const button = segment.createEl('button', { text: label });
-			button.toggleClass('is-active', this.filters[key] === value);
-			button.addEventListener('click', () => {
-				this.filters = { ...this.filters, [key]: value };
-				this.render();
-			});
-		}
-	}
 
 	private renderGroups(root: HTMLElement, cache: ShelfCache): void {
 		const groups = filterAndGroupShelf(cache.items, this.filters, this.dependencies.getNoteText());
 		if (groups.length === 0) {
-			root.createDiv({ cls: 'weread-shelf__empty', text: 'No matching books.' });
+			root.createDiv({ cls: 'weread-shelf__empty', text: '没有匹配的书籍。' });
 			return;
 		}
 
 		for (const group of groups) {
 			const section = root.createDiv({ cls: 'weread-shelf__section' });
-			section.createEl('h3', { text: group.label });
+			const heading = /^\d{4}$/.test(group.key) ? `${group.label} 年` : group.label;
+			section.createEl('h3', { text: heading });
 			const grid = section.createDiv({ cls: 'weread-shelf__grid' });
 			for (const item of group.items) {
 				this.renderCard(grid, item);
@@ -178,43 +187,55 @@ export class ShelfView extends ItemView {
 
 	private renderCard(grid: HTMLElement, item: ShelfItem): void {
 		const card = grid.createDiv({ cls: 'weread-shelf__card' });
-		const cover = card.createEl('img', {
+
+		const coverWrap = card.createDiv({ cls: 'weread-shelf__cover-wrap' });
+		const cover = coverWrap.createEl('img', {
 			cls: 'weread-shelf__cover',
 			attr: { alt: '', src: item.coverUrl },
 		});
 		if (item.coverUrl === '') {
 			cover.addClass('is-empty');
 		}
-
-		const actions = card.createDiv({ cls: 'weread-shelf__actions' });
-		this.renderIconButton(actions, 'external-link', 'Open WeRead', () =>
-			this.dependencies.openWeread(item),
-		);
-		this.renderIconButton(actions, 'file-plus', 'Open or create note', () =>
-			this.dependencies.openOrCreateNote(item),
-		);
-		this.renderIconButton(actions, 'download', 'Sync notes', () =>
-			this.dependencies.syncBookNotes(item),
-		);
-
-		const body = card.createDiv({ cls: 'weread-shelf__body' });
-		body.createDiv({ cls: 'weread-shelf__title', text: item.title });
-		body.createDiv({ cls: 'weread-shelf__author', text: item.author });
-		body.createDiv({ cls: 'weread-shelf__meta', text: formatActivityLabel(item) });
-
-		const badges = body.createDiv({ cls: 'weread-shelf__badges' });
-		badges.createSpan({
-			cls: 'weread-shelf__badge',
-			text: item.kind === 'book' ? item.readingState : item.listeningState,
-		});
-		if (this.dependencies.getNoteText().has(item.id)) {
-			badges.createSpan({ cls: 'weread-shelf__badge', text: 'Local note' });
+		if (item.kind === 'audiobook') {
+			const audioBadge = coverWrap.createDiv({ cls: 'weread-shelf__cover-badge weread-shelf__cover-badge--audio' });
+			setIcon(audioBadge, 'headphones');
 		}
 		if (item.kind === 'book' && item.readingState === 'completed') {
-			badges.createSpan({ cls: 'weread-shelf__badge', text: 'Completed' });
+			coverWrap.createDiv({ cls: 'weread-shelf__cover-badge weread-shelf__cover-badge--read', text: '已读' });
 		}
-		if (item.kind === 'audiobook' && item.hasUnreadUpdate) {
-			badges.createSpan({ cls: 'weread-shelf__badge weread-shelf__badge--update', text: 'Update' });
+
+		const info = card.createDiv({ cls: 'weread-shelf__info' });
+
+		const titleRow = info.createDiv({ cls: 'weread-shelf__title-row' });
+		titleRow.createSpan({ cls: 'weread-shelf__title', text: item.title });
+		const actions = titleRow.createDiv({ cls: 'weread-shelf__actions' });
+		this.renderIconButton(actions, 'refresh-cw', '同步笔记', () =>
+			this.dependencies.syncBookNotes(item),
+		);
+		this.renderIconButton(actions, 'book-open', '打开微信读书', () =>
+			this.dependencies.openWeread(item),
+		);
+
+		info.createDiv({ cls: 'weread-shelf__author', text: item.author });
+
+		const badges = info.createDiv({ cls: 'weread-shelf__badges' });
+		if (this.dependencies.getNoteText().has(item.id)) {
+			badges.createSpan({ cls: 'weread-shelf__badge weread-shelf__badge--synced', text: '已同步' });
+		}
+		badges.createSpan({ cls: 'weread-shelf__badge', text: item.kind === 'audiobook' ? '有声书' : '图书' });
+		if (item.kind === 'book') {
+			const stateLabel = item.readingState === 'completed' ? '读完'
+				: item.readingState === 'inProgress' ? '在读' : '未读';
+			badges.createSpan({ cls: 'weread-shelf__badge', text: stateLabel });
+		}
+
+		if (item.lastActivityAt && item.lastActivityAt > 0) {
+			const date = new Intl.DateTimeFormat('en-CA', {
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+			}).format(new Date(item.lastActivityAt * 1000));
+			info.createDiv({ cls: 'weread-shelf__meta', text: `最近阅读 ${date}` });
 		}
 	}
 

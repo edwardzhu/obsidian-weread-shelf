@@ -1,3 +1,4 @@
+import { requestUrl } from 'obsidian';
 import { WereadGatewayError, WereadUpgradeRequiredError } from './errors';
 
 const GATEWAY_URL = 'https://i.weread.qq.com/api/agent/gateway';
@@ -98,10 +99,23 @@ export interface WereadApi {
 	listMyReviews(bookId: string): Promise<RawReview[]>;
 }
 
+export type RequestFn = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ status: number; json: unknown }>;
+
+const defaultRequest: RequestFn = async (url, init) => {
+	const response = await requestUrl({
+		url,
+		method: init.method,
+		headers: init.headers,
+		body: init.body,
+		throw: false,
+	});
+	return { status: response.status, json: response.json };
+};
+
 export class WereadClient implements WereadApi {
 	constructor(
 		private readonly apiKey: string,
-		private readonly fetchImpl: typeof fetch = fetch,
+		private readonly requestFn: RequestFn = defaultRequest,
 	) {}
 
 	async getShelf(): Promise<RawShelfResponse> {
@@ -132,10 +146,10 @@ export class WereadClient implements WereadApi {
 		apiName: string,
 		parameters: Record<string, unknown>,
 	): Promise<T> {
-		const response = await this.fetchImpl(GATEWAY_URL, {
+		const response = await this.requestFn(GATEWAY_URL, {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${this.apiKey}`,
+				'Authorization': `Bearer ${this.apiKey}`,
 				'Content-Type': 'application/json',
 			},
 			body: JSON.stringify({
@@ -145,11 +159,11 @@ export class WereadClient implements WereadApi {
 			}),
 		});
 
-		if (!response.ok) {
-			throw new WereadGatewayError(response.status, response.statusText);
+		if (response.status >= 400) {
+			throw new WereadGatewayError(response.status, `HTTP ${response.status}`);
 		}
 
-		const payload: unknown = await response.json();
+		const payload: unknown = response.json;
 		if (!isRecord(payload)) {
 			throw new WereadGatewayError(-1, 'Gateway returned invalid JSON');
 		}
