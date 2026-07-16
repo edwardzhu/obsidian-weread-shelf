@@ -18,14 +18,14 @@ export interface ShelfViewDependencies {
 	syncShelf(): Promise<ShelfSyncResult>;
 	openWeread(item: ShelfItem): Promise<void>;
 	openOrCreateNote(item: ShelfItem): Promise<void>;
-	syncBookNotes(item: ShelfItem): Promise<void>;
+	openSettings(): void;
 }
 
 export class ShelfView extends ItemView {
 	private filters: ShelfFilterState = {
 		query: '',
 		type: 'all',
-		status: 'active',
+		status: 'all',
 		sort: 'activity',
 	};
 	private cache: ShelfCache | null = null;
@@ -164,6 +164,68 @@ export class ShelfView extends ItemView {
 			this.filters = { ...this.filters, query: search.value };
 			this.renderContent();
 		});
+
+		const filters = controls.createDiv({ cls: 'weread-shelf__filters' });
+		this.renderFilterSelect(
+			filters,
+			'书籍类型',
+			[
+				{ value: 'all', label: '全部图书' },
+				{ value: 'books', label: '只有书籍' },
+			],
+			this.filters.type,
+			(type) => {
+				this.filters = { ...this.filters, type };
+				this.renderContent();
+			},
+		);
+		this.renderFilterSelect(
+			filters,
+			'书籍状态',
+			[
+				{ value: 'all', label: '全部' },
+				{ value: 'completed', label: '已读完' },
+				{ value: 'inProgress', label: '在读' },
+				{ value: 'unread', label: '未读' },
+			],
+			this.filters.status,
+			(status) => {
+				this.filters = { ...this.filters, status };
+				this.renderContent();
+			},
+		);
+		this.renderIconButton(controls, 'settings', '打开插件设置', () =>
+			this.dependencies.openSettings(),
+			'weread-shelf__settings-button',
+		);
+	}
+
+	private renderFilterSelect<T extends string>(
+		parent: HTMLElement,
+		labelText: string,
+		options: ReadonlyArray<{ value: T; label: string }>,
+		value: T,
+		onChange: (value: T) => void,
+	): void {
+		const label = parent.createEl('label', { cls: 'weread-shelf__filter' });
+		label.createSpan({ text: labelText });
+		const select = label.createEl('select', {
+			cls: 'weread-shelf__select',
+			attr: { 'aria-label': labelText },
+		});
+		for (const option of options) {
+			select.createEl('option', {
+				text: option.label,
+				attr: { value: option.value },
+			});
+		}
+		select.value = value;
+		select.addEventListener('change', () => {
+			const selected = options.find((option) => option.value === select.value);
+			if (selected !== undefined) {
+				onChange(selected.value);
+			}
+		});
 	}
 
 
@@ -209,8 +271,8 @@ export class ShelfView extends ItemView {
 		const titleRow = info.createDiv({ cls: 'weread-shelf__title-row' });
 		titleRow.createSpan({ cls: 'weread-shelf__title', text: item.title });
 		const actions = titleRow.createDiv({ cls: 'weread-shelf__actions' });
-		this.renderIconButton(actions, 'refresh-cw', '同步笔记', () =>
-			this.dependencies.syncBookNotes(item),
+		this.renderIconButton(actions, 'pencil', '打开或创建笔记', () =>
+			this.dependencies.openOrCreateNote(item),
 		);
 		this.renderIconButton(actions, 'book-open', '打开微信读书', () =>
 			this.dependencies.openWeread(item),
@@ -243,17 +305,18 @@ export class ShelfView extends ItemView {
 		parent: HTMLElement,
 		icon: string,
 		label: string,
-		action: () => Promise<void>,
+		action: () => void | Promise<void>,
+		className?: string,
 	): void {
 		const button = parent.createEl('button', {
-			cls: 'clickable-icon',
+			cls: className === undefined ? 'clickable-icon' : `clickable-icon ${className}`,
 			attr: { 'aria-label': label },
 		});
 		setIcon(button, icon);
 		setTooltip(button, label);
 		button.addEventListener('click', (event) => {
 			event.stopPropagation();
-			void action().finally(() => this.refresh());
+			void Promise.resolve(action()).finally(() => this.refresh());
 		});
 	}
 

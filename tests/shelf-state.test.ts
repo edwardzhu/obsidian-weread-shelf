@@ -88,7 +88,7 @@ describe('shelf state', () => {
 	it('searches metadata and associated-note text, then groups by activity year', () => {
 		const groups = filterAndGroupShelf(
 			[book, audio],
-			{ query: 'annotation', type: 'all', status: 'active', sort: 'activity' },
+			{ query: 'annotation', type: 'all', status: 'all', sort: 'activity' },
 			new Map([['book-1', 'My annotation about this history']]),
 		);
 		expect(groups).toEqual([{ key: '2026', label: '2026', items: [book] }]);
@@ -98,22 +98,22 @@ describe('shelf state', () => {
 		expect(
 			filterAndGroupShelf(
 				allItems,
-				{ query: '', type: 'books', status: 'all', sort: 'activity' },
+				{ query: '', type: 'all', status: 'all', sort: 'activity' },
 				new Map(),
 			).flatMap((group) => group.items.map((item) => item.id)),
-		).toEqual(['book-1', 'book-3', 'book-2']);
+		).toEqual(['book-1', 'book-3', 'audio-2', 'audio-1', 'book-2']);
 
 		expect(
 			filterAndGroupShelf(
 				allItems,
-				{ query: '', type: 'audiobooks', status: 'all', sort: 'activity' },
+				{ query: '', type: 'books', status: 'all', sort: 'activity' },
 				new Map(),
 			).flatMap((group) => group.items.map((item) => item.id)),
-		).toEqual(['audio-2', 'audio-1']);
+		).toEqual(['book-1', 'book-3', 'book-2']);
 	});
 
 	it('filters by status', () => {
-		const idsForStatus = (status: 'unread' | 'inProgress' | 'completed' | 'active') =>
+		const idsForStatus = (status: 'unread' | 'inProgress' | 'completed') =>
 			filterAndGroupShelf(
 				allItems,
 				{ query: '', type: 'all', status, sort: 'activity' },
@@ -123,7 +123,20 @@ describe('shelf state', () => {
 		expect(idsForStatus('unread')).toEqual(['book-2']);
 		expect(idsForStatus('inProgress')).toEqual(['book-1']);
 		expect(idsForStatus('completed')).toEqual(['book-3']);
-		expect(idsForStatus('active')).toEqual(['book-1', 'audio-2', 'audio-1', 'book-2']);
+
+		const completedByState: ShelfItem = {
+			...book,
+			id: 'book-4',
+			progress: 45,
+			readingState: 'completed',
+		};
+		expect(
+			filterAndGroupShelf(
+				[book, completedBook, completedByState],
+				{ query: '', type: 'all', status: 'completed', sort: 'activity' },
+				new Map(),
+			).flatMap((group) => group.items.map((item) => item.id)),
+		).toEqual(['book-4', 'book-3']);
 	});
 
 	it('sorts titles inside each group when requested', () => {

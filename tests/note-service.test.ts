@@ -49,10 +49,19 @@ describe('NoteService', () => {
 			() => 'Reading',
 		);
 
-		const created = await service.ensureNote(book, { kind: 'template', source: '# {{title}}' });
+		const created = await service.ensureNote(
+			book,
+			{
+				kind: 'template',
+				source: '{{title}}|{{author}}|{{bookId}}|{{category}}|{{cover}}|{{readDate}}|{{wereadUrl}}',
+			},
+		);
 
 		expect(created.path).toBe('Reading/The Book.md');
 		expect(created.content).toContain('weread-book-id: book-1');
+		expect(created.content).toContain(
+			'The Book|Author|book-1|History|cover|2026-01-10|weread://book/book-1',
+		);
 
 		await fakeStore.modify(created.path, `${created.content}\nKeep this handwritten paragraph\n`);
 		await service.syncBookNotes(book, created.path);

@@ -3,13 +3,59 @@
 }
 
 .weread-shelf__controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	margin-bottom: 16px;
 }
 
 .weread-shelf__search {
 	box-sizing: border-box;
+	flex: 1 1 auto;
+	min-width: 0;
 	width: 100%;
-	max-width: 400px;
+}
+
+.weread-shelf__filters {
+	display: flex;
+	flex: 0 0 auto;
+	flex-wrap: nowrap;
+	gap: 12px;
+}
+
+.weread-shelf__filter {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.weread-shelf__select {
+	min-width: 108px;
+}
+
+.weread-shelf__settings-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 30px;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border-radius: 4px;
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.weread-shelf__settings-button:hover {
+	background-color: var(--interactive-accent-hover);
+	color: var(--text-on-accent);
+}
+
+.weread-shelf__settings-button svg {
+	width: 16px;
+	height: 16px;
 }
 
 .weread-shelf__stats {
@@ -107,8 +153,8 @@
 }
 
 .weread-shelf__cover-badge--read {
-	top: 4px;
-	right: 4px;
+	top: 0;
+	right: 0;
 	background: var(--interactive-accent);
 	color: var(--text-on-accent);
 	font-weight: 500;
@@ -199,4 +245,5 @@
 	.weread-shelf__grid {
 		grid-template-columns: 1fr;
 	}
+
 }

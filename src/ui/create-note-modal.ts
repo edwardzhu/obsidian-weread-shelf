@@ -23,7 +23,7 @@ export class CreateNoteModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', {
-			text: this.request.purpose === 'batch' ? 'Create WeRead notes' : this.request.book.title,
+			text: this.request.purpose === 'batch' ? 'Create WeRead notes' : '选择笔记模板',
 		});
 
 		for (const path of this.request.candidatePaths) {
@@ -37,9 +37,9 @@ export class CreateNoteModal extends Modal {
 		}
 
 		new Setting(contentEl)
-			.setName('Blank note')
+			.setName('空白笔记')
 			.addButton((button) => {
-				button.setButtonText('Select').onClick(() => this.choose({ kind: 'blank' }));
+				button.setButtonText('选择').onClick(() => this.choose({ kind: 'blank' }));
 			});
 
 		for (const template of this.templates) {
@@ -47,7 +47,7 @@ export class CreateNoteModal extends Modal {
 				.setName(template.path)
 				.addButton((button) => {
 					button
-						.setButtonText('Select')
+						.setButtonText('选择')
 						.onClick(() => this.choose({ kind: 'template', source: template.content }));
 				});
 		}

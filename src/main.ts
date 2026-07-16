@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile } from 'obsidian';
+import { Notice, Plugin, TAbstractFile, TFile, type App } from 'obsidian';
 import { registerCommands } from './commands';
 import { WereadClient } from './api/weread-client';
 import { AssociatedNoteIndex } from './services/note-index-service';
@@ -41,7 +41,7 @@ export default class WereadShelfPlugin extends Plugin {
 					syncShelf: () => this.syncShelf(),
 					openWeread: (item) => this.openWeread(item),
 					openOrCreateNote: (item) => this.openOrCreateNote(item),
-					syncBookNotes: (item) => this.syncBookNotesForItem(item),
+					openSettings: () => this.openSettings(),
 				}),
 		);
 
@@ -164,22 +164,15 @@ export default class WereadShelfPlugin extends Plugin {
 		).open();
 	}
 
-	private async syncBookNotesForItem(item: ShelfItem): Promise<void> {
-		if (!this.hasApiKey()) {
-			new Notice('Set a WeRead API Key first.');
-			return;
-		}
-
-		try {
-			const service = this.createNoteService();
-			const note = await service.ensureNote(item, { kind: 'blank' });
-			await service.syncBookNotes(item, note.path);
-			await this.noteIndex.refreshBook(item.id, note.path);
-			await this.refreshShelfViews();
-			new Notice('WeRead notes synced.');
-		} catch (error) {
-			new Notice(`WeRead notes sync failed: ${getErrorMessage(error)}`);
-		}
+	private openSettings(): void {
+		const appWithSettings = this.app as App & {
+			setting: {
+				open(): void;
+				openTabById(id: string): void;
+			};
+		};
+		appWithSettings.setting.open();
+		appWithSettings.setting.openTabById(this.manifest.id);
 	}
 
 	private createShelfSyncService(): ShelfSyncService {

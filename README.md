@@ -65,8 +65,8 @@ Audiobook **Update** badges appear when the source update time increases compare
 
 The shelf has two filter dimensions:
 
-- Type: all, books, audiobooks.
-- Status: active, all, in progress, unread, completed.
+- Type: all books or books only. All books includes audiobooks on the shelf.
+- Status: all, completed, in progress, or unread. Status filters apply to books; completed includes books at 100% progress or marked completed.
 
 Associated-note search is intentionally limited to notes mapped in plugin data. The plugin never scans unrelated vault files for shelf search.
 

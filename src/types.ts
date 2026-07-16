@@ -1,7 +1,7 @@
 export type BookReadingState = 'unread' | 'inProgress' | 'completed';
 export type AudiobookListeningState = 'unheard' | 'listening';
-export type ItemTypeFilter = 'all' | 'books' | 'audiobooks';
-export type StatusFilter = 'all' | 'inProgress' | 'unread' | 'completed' | 'active';
+export type ItemTypeFilter = 'all' | 'books';
+export type StatusFilter = 'all' | 'inProgress' | 'unread' | 'completed';
 export type ShelfSort = 'activity' | 'title';
 
 export interface ShelfItemBase {

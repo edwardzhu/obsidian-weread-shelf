@@ -96,9 +96,6 @@ function matchesType(item: ShelfItem, type: ShelfFilterState['type']): boolean {
 	if (type === 'books') {
 		return item.kind === 'book';
 	}
-	if (type === 'audiobooks') {
-		return item.kind === 'audiobook';
-	}
 	return true;
 }
 
@@ -106,11 +103,11 @@ function matchesStatus(item: ShelfItem, status: ShelfFilterState['status']): boo
 	if (status === 'all') {
 		return true;
 	}
-	if (status === 'active') {
-		return item.kind === 'audiobook' || item.readingState !== 'completed';
-	}
 	if (item.kind !== 'book') {
 		return false;
+	}
+	if (status === 'completed') {
+		return item.progress === 100 || item.readingState === 'completed';
 	}
 	return item.readingState === status;
 }
