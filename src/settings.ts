@@ -1,4 +1,14 @@
-import { App, FuzzySuggestModal, Plugin, PluginSettingTab, setIcon, Setting, TFolder } from 'obsidian';
+import {
+	App,
+	FuzzySuggestModal,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	setIcon,
+	Setting,
+	TFolder,
+	type TextComponent,
+} from 'obsidian';
 import type { ShelfSort } from './types';
 
 export interface WereadShelfSettings {
@@ -20,6 +30,26 @@ export const DEFAULT_SETTINGS: WereadShelfSettings = {
 export interface WereadShelfSettingTabDependencies {
 	getSettings(): WereadShelfSettings;
 	updateSettings(settings: WereadShelfSettings): Promise<void>;
+}
+
+export async function ensureVaultFolder(
+	vault: Pick<App['vault'], 'getAbstractFileByPath' | 'createFolder'>,
+	path: string,
+): Promise<void> {
+	if (path === '') {
+		return;
+	}
+
+	let currentPath = '';
+	for (const segment of path.split('/')) {
+		currentPath = currentPath === '' ? segment : `${currentPath}/${segment}`;
+		const existing = vault.getAbstractFileByPath(currentPath);
+		if (existing === null) {
+			await vault.createFolder(currentPath);
+		} else if (!(existing instanceof TFolder)) {
+			throw new Error(`${currentPath} 不是文件夹`);
+		}
+	}
 }
 
 export function mergeSettings(
@@ -97,27 +127,23 @@ export class WereadShelfSettingTab extends PluginSettingTab {
 			}
 		});
 
+		let notesFolderText: TextComponent | null = null;
 		new Setting(containerEl)
 			.setName('笔记保存位置')
 			.setDesc('请选择Obsidian Vault中微信读书笔记存放的位置，例如：/ 或 Books/Weread')
 			.addText((text) => {
-				text
-					.setPlaceholder('WeRead')
-					.setValue(settings.notesFolder)
-					.onChange((value) => {
-						const normalized = normalizeFolderPath(value);
-						if (isVaultRelativePath(normalized)) {
-							void this.savePartial({ notesFolder: normalized });
-						}
-					});
+				notesFolderText = text;
+				text.setPlaceholder('WeRead');
+				this.configureFolderInput(text, settings.notesFolder, (value) =>
+					this.savePartial({ notesFolder: value }),
+				);
 			})
 			.addButton((btn) => {
-				btn.setButtonText('选择').onClick(async () => {
-					const folder = await this.pickFolder();
-					if (folder !== null) {
+				btn.setButtonText('选择').onClick(() => {
+					this.pickFolder(async (folder) => {
+						notesFolderText?.setValue(folder);
 						await this.savePartial({ notesFolder: folder });
-						this.display();
-					}
+					});
 				});
 			});
 		this.addFolderSetting('Template folder', settings.templateFolder, (value) =>
@@ -144,13 +170,41 @@ export class WereadShelfSettingTab extends PluginSettingTab {
 			.setName(name)
 			.setDesc('Use a vault-relative folder path.')
 			.addText((text) => {
-				text.setValue(value).onChange((nextValue) => {
-					const normalized = normalizeFolderPath(nextValue);
-					if (isVaultRelativePath(normalized)) {
-						void onSave(normalized);
-					}
-				});
+				this.configureFolderInput(text, value, onSave);
 			});
+	}
+
+	private configureFolderInput(
+		text: TextComponent,
+		value: string,
+		onSave: (value: string) => Promise<void>,
+	): void {
+		text.setValue(value).onChange((nextValue) => {
+			const normalized = normalizeFolderPath(nextValue);
+			if (isVaultRelativePath(normalized)) {
+				void onSave(normalized);
+			}
+		});
+		text.inputEl.addEventListener('blur', () => {
+			void this.ensureFolderAndSave(text.inputEl, onSave);
+		});
+	}
+
+	private async ensureFolderAndSave(
+		input: HTMLInputElement,
+		onSave: (value: string) => Promise<void>,
+	): Promise<void> {
+		const normalized = normalizeFolderPath(input.value);
+		if (!isVaultRelativePath(normalized)) {
+			return;
+		}
+
+		try {
+			await ensureVaultFolder(this.app.vault, normalized);
+			await onSave(normalized);
+		} catch (error) {
+			new Notice(`无法创建文件夹：${getErrorMessage(error)}`);
+		}
 	}
 
 	private async savePartial(partial: Partial<WereadShelfSettings>): Promise<void> {
@@ -161,14 +215,14 @@ export class WereadShelfSettingTab extends PluginSettingTab {
 		});
 	}
 
-	private pickFolder(): Promise<string | null> {
-		return new Promise((resolve) => {
-			const modal = new FolderSuggestModal(this.app, (folder) => {
-				resolve(folder.path === '/' ? '' : folder.path);
+	private pickFolder(onChoose: (folder: string) => void | Promise<void>): void {
+		const modal = new FolderSuggestModal(this.app, (folder) => {
+			const path = folder.path === '/' ? '' : folder.path;
+			void Promise.resolve(onChoose(path)).catch((error: unknown) => {
+				new Notice(`保存文件夹设置失败：${getErrorMessage(error)}`);
 			});
-			modal.onClose = () => resolve(null);
-			modal.open();
 		});
+		modal.open();
 	}
 }
 
@@ -221,4 +275,8 @@ function isVaultRelativePath(path: string): boolean {
 
 function isRecord(value: unknown): value is Record<string, string> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }

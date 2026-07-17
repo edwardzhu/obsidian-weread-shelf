@@ -5,6 +5,9 @@ export class Plugin {}
 export class PluginSettingTab {
 	containerEl = { empty() {}, createEl() {} };
 }
+export class Notice {
+	constructor(public readonly message: string) {}
+}
 export class Setting {
 	setName() { return this; }
 	setDesc() { return this; }

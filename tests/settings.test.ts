@@ -1,10 +1,47 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS, mergeSettings } from '../src/settings';
+import { TFolder } from 'obsidian';
+import { DEFAULT_SETTINGS, ensureVaultFolder, mergeSettings } from '../src/settings';
 import { PluginDataStore, type PersistedPluginData } from '../src/storage/plugin-data-store';
 import type { ShelfCache } from '../src/types';
 
 
 describe('settings', () => {
+	it('creates missing nested vault folders in order', async () => {
+		const folders = new Set<string>();
+		const created: string[] = [];
+		const vault = {
+			getAbstractFileByPath(path: string): TFolder | null {
+				return folders.has(path) ? new TFolder() : null;
+			},
+			async createFolder(path: string): Promise<TFolder> {
+				created.push(path);
+				folders.add(path);
+				return new TFolder();
+			},
+		};
+
+		await ensureVaultFolder(vault, 'Books/Weread');
+
+		expect(created).toEqual(['Books', 'Books/Weread']);
+	});
+
+	it('does not recreate existing vault folders', async () => {
+		const created: string[] = [];
+		const vault = {
+			getAbstractFileByPath(): TFolder {
+				return new TFolder();
+			},
+			async createFolder(path: string): Promise<TFolder> {
+				created.push(path);
+				return new TFolder();
+			},
+		};
+
+		await ensureVaultFolder(vault, 'Books/Weread');
+
+		expect(created).toEqual([]);
+	});
+
 	it('merges partial persisted settings without dropping defaults', () => {
 		expect(mergeSettings({ notesFolder: 'Reading' })).toEqual({
 			...DEFAULT_SETTINGS,
