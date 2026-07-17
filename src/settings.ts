@@ -146,16 +146,16 @@ export class WereadShelfSettingTab extends PluginSettingTab {
 					});
 				});
 			});
-		this.addFolderSetting('Template folder', settings.templateFolder, (value) =>
+		this.addFolderSetting('模板目录', settings.templateFolder, (value) =>
 			this.savePartial({ templateFolder: value }),
 		);
 
 		new Setting(containerEl)
-			.setName('Sort mode')
+			.setName('书架排序')
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption('activity', 'Activity')
-					.addOption('title', 'Title')
+					.addOption('activity', '按最近阅读')
+					.addOption('title', '按书名')
 					.setValue(settings.sort)
 					.onChange((value) => this.savePartial({ sort: value === 'title' ? 'title' : 'activity' }));
 			});
@@ -166,11 +166,21 @@ export class WereadShelfSettingTab extends PluginSettingTab {
 		value: string,
 		onSave: (value: string) => Promise<void>,
 	): void {
+		let folderText: TextComponent | null = null;
 		new Setting(this.containerEl)
 			.setName(name)
-			.setDesc('Use a vault-relative folder path.')
+			.setDesc('请选择生成读书笔记的模板目录')
 			.addText((text) => {
+				folderText = text;
 				this.configureFolderInput(text, value, onSave);
+			})
+			.addButton((button) => {
+				button.setButtonText('选择').onClick(() => {
+					this.pickFolder(async (folder) => {
+						folderText?.setValue(folder);
+						await onSave(folder);
+					});
+				});
 			});
 	}
 
