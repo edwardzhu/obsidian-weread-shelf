@@ -12,7 +12,6 @@ import type {
 } from '../services/shelf-sync-service';
 import type { WereadShelfSettings } from '../settings';
 import type { ShelfCache, ShelfFilterState, ShelfItem } from '../types';
-import { FORCE_SYNC_ACTION } from '../ui/shelf-toolbar';
 import { filterAndGroupShelf } from '../utils/shelf-state';
 import { hasConfiguredApiKey } from '../utils/shelf-sync-availability';
 import { getShelfSyncProgressViewModel } from '../utils/shelf-sync-progress';
@@ -39,6 +38,8 @@ export class ShelfView extends ItemView {
 	private cache: ShelfCache | null = null;
 	private searchEl: HTMLInputElement | null = null;
 	private contentAreaEl: HTMLElement | null = null;
+	private summarySyncProgressLabelEl: HTMLElement | null = null;
+	private summarySyncProgressBarEl: HTMLProgressElement | null = null;
 	private isLoading = false;
 	private syncProgress: ShelfSyncProgress = {
 		phase: 'fetching',
@@ -112,6 +113,8 @@ export class ShelfView extends ItemView {
 	private renderContent(): void {
 		const area = this.contentAreaEl!;
 		area.empty();
+		this.summarySyncProgressLabelEl = null;
+		this.summarySyncProgressBarEl = null;
 
 		if (this.cache !== null) {
 			this.renderStats(area, this.cache);
@@ -152,6 +155,10 @@ export class ShelfView extends ItemView {
 
 	private updateSyncProgress(progress: ShelfSyncProgress): void {
 		this.syncProgress = progress;
+		if (this.cache !== null) {
+			this.updateSummarySyncProgress();
+			return;
+		}
 		if (this.isLoading && this.contentAreaEl !== null) {
 			this.renderContent();
 		}
@@ -199,6 +206,39 @@ export class ShelfView extends ItemView {
 		this.renderStatItem(stats, 'calendar', `${yearSet.size} 年`);
 		this.renderStatItem(stats, 'clock', syncLabel);
 		this.renderStatItem(stats, 'refresh-cw', `${recentCount} 本`);
+		if (this.isLoading) {
+			this.renderSummarySyncProgress(stats);
+		}
+	}
+
+	private renderSummarySyncProgress(parent: HTMLElement): void {
+		const progressArea = parent.createDiv({ cls: 'weread-shelf__summary-progress' });
+		this.summarySyncProgressLabelEl = progressArea.createDiv({
+			cls: 'weread-shelf__summary-progress-label',
+		});
+		this.summarySyncProgressBarEl = progressArea.createEl('progress', {
+			cls: 'weread-shelf__summary-progress-bar',
+			attr: { 'aria-label': this.syncProgress.phase },
+		});
+		this.updateSummarySyncProgress();
+	}
+
+	private updateSummarySyncProgress(): void {
+		const label = this.summarySyncProgressLabelEl;
+		const progress = this.summarySyncProgressBarEl;
+		if (label === null || progress === null) {
+			return;
+		}
+
+		const viewModel = getShelfSyncProgressViewModel(this.syncProgress);
+		label.textContent = viewModel.label;
+		progress.setAttribute('aria-label', viewModel.label);
+		if (viewModel.determinate && viewModel.total > 0) {
+			progress.max = viewModel.total;
+			progress.value = viewModel.completed;
+		} else {
+			progress.removeAttribute('value');
+		}
 	}
 
 	private renderStatItem(parent: HTMLElement, icon: string, text: string): void {
@@ -267,10 +307,10 @@ export class ShelfView extends ItemView {
 		);
 		this.renderIconButton(
 			controls,
-			FORCE_SYNC_ACTION.icon,
-			FORCE_SYNC_ACTION.label,
+			'sync',
+			'强制刷新书架',
 			() => this.syncAndRender(),
-			FORCE_SYNC_ACTION.className,
+			'weread-shelf__sync-button',
 		);
 	}
 
