@@ -28,26 +28,26 @@ export class CreateNoteModal extends Modal {
 
 		for (const path of this.request.candidatePaths) {
 			new Setting(contentEl)
-				.setName(path)
+				.setName(`候选笔记：${path}`)
 				.addButton((button) => {
 					button
-						.setButtonText('Use existing note')
+						.setButtonText('连接并打开')
 						.onClick(() => this.choose({ kind: 'blank' }, path));
 				});
 		}
 
 		new Setting(contentEl)
-			.setName('空白笔记')
+			.setName('不使用模板')
 			.addButton((button) => {
-				button.setButtonText('选择').onClick(() => this.choose({ kind: 'blank' }));
+				button.setButtonText('新建').onClick(() => this.choose({ kind: 'blank' }));
 			});
 
 		for (const template of this.templates) {
 			new Setting(contentEl)
-				.setName(template.path)
+				.setName(`模板：${template.path}`)
 				.addButton((button) => {
 					button
-						.setButtonText('选择')
+						.setButtonText('使用模板')
 						.onClick(() => this.choose({ kind: 'template', source: template.content }));
 				});
 		}
@@ -58,6 +58,9 @@ export class CreateNoteModal extends Modal {
 	}
 
 	private choose(choice: TemplateChoice, existingPath?: string): void {
-		void this.onChoose(choice, existingPath).finally(() => this.close());
+		const operation = existingPath === undefined
+			? this.onChoose(choice)
+			: this.onChoose(choice, existingPath);
+		void operation.finally(() => this.close());
 	}
 }

@@ -13,11 +13,61 @@ export class PluginSettingTab {
 export class Notice {
 	constructor(public readonly message: string) {}
 }
+export class Modal {
+	contentEl = { empty() {} };
+
+	constructor(public readonly app: unknown) {}
+
+	open(): void {
+		this.onOpen();
+	}
+
+	close(): void {
+		this.onClose();
+	}
+
+	onOpen(): void {}
+
+	onClose(): void {}
+}
+
+class MockSettingButton {
+	text = '';
+	private callback: (() => void) | null = null;
+
+	setButtonText(text: string): this {
+		this.text = text;
+		return this;
+	}
+
+	onClick(callback: () => void): this {
+		this.callback = callback;
+		return this;
+	}
+
+	click(): void {
+		this.callback?.();
+	}
+}
+
 export class Setting {
-	setName() { return this; }
+	static instances: Setting[] = [];
+	name = '';
+	buttonText = '';
+	readonly button = new MockSettingButton();
+
+	constructor() {
+		Setting.instances.push(this);
+	}
+
+	setName(name: string) { this.name = name; return this; }
 	setDesc() { return this; }
 	addText() { return this; }
-	addButton() { return this; }
+	addButton(callback: (button: MockSettingButton) => void) {
+		callback(this.button);
+		this.buttonText = this.button.text;
+		return this;
+	}
 	addDropdown() { return this; }
 	controlEl = { createEl() { return { addEventListener() {} }; } };
 }
