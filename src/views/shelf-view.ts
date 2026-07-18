@@ -14,6 +14,7 @@ import type { WereadShelfSettings } from '../settings';
 import type { ShelfCache, ShelfFilterState, ShelfItem } from '../types';
 import { FORCE_SYNC_ACTION } from '../ui/shelf-toolbar';
 import { filterAndGroupShelf } from '../utils/shelf-state';
+import { hasConfiguredApiKey } from '../utils/shelf-sync-availability';
 import { getShelfSyncProgressViewModel } from '../utils/shelf-sync-progress';
 
 export const SHELF_VIEW_TYPE = 'weread-shelf-view';
@@ -82,6 +83,10 @@ export class ShelfView extends ItemView {
 	}
 
 	private async tryInitialRefresh(): Promise<void> {
+		if (!hasConfiguredApiKey(this.dependencies.getSettings().apiKey)) {
+			return;
+		}
+
 		try {
 			this.cache = (
 				await this.dependencies.syncShelf((progress) => this.updateSyncProgress(progress))
@@ -125,6 +130,11 @@ export class ShelfView extends ItemView {
 	}
 
 	private async syncAndRender(): Promise<void> {
+		if (!hasConfiguredApiKey(this.dependencies.getSettings().apiKey)) {
+			new Notice('请先在插件设置中配置微信读书 API Key。');
+			return;
+		}
+
 		this.isLoading = true;
 		this.syncProgress = { phase: 'fetching', completed: 0, total: 0 };
 		this.render();

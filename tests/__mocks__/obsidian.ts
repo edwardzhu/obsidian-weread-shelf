@@ -2,6 +2,11 @@ import { vi } from 'vitest';
 
 export class App {}
 export class Plugin {}
+export class ItemView {
+	contentEl = {} as HTMLElement;
+
+	constructor(public readonly leaf: unknown) {}
+}
 export class PluginSettingTab {
 	containerEl = { empty() {}, createEl() {} };
 }
@@ -28,4 +33,5 @@ export class TFolder {
 	children: unknown[] = [];
 }
 export function setIcon() {}
+export function setTooltip() {}
 export const requestUrl = vi.fn().mockResolvedValue({ status: 200, json: {} });
