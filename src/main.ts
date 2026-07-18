@@ -4,7 +4,12 @@ import { WereadClient } from './api/weread-client';
 import { AssociatedNoteIndex } from './services/note-index-service';
 import { NoteService, type TemplateChoice } from './services/note-service';
 import { PluginRuntime } from './services/plugin-runtime';
-import { ShelfSyncService, type ShelfSyncResult } from './services/shelf-sync-service';
+import { ShelfSyncCoordinator } from './services/shelf-sync-coordinator';
+import {
+	ShelfSyncService,
+	type ShelfSyncProgressListener,
+	type ShelfSyncResult,
+} from './services/shelf-sync-service';
 import { WereadShelfSettingTab } from './settings';
 import { ObsidianNoteStore } from './storage/obsidian-note-store';
 import { PluginDataStore } from './storage/plugin-data-store';
@@ -18,6 +23,9 @@ export default class WereadShelfPlugin extends Plugin {
 	private dataStore!: PluginDataStore;
 	private noteStore!: ObsidianNoteStore;
 	private noteIndex!: AssociatedNoteIndex;
+	private readonly shelfSyncCoordinator = new ShelfSyncCoordinator(
+		(onProgress) => this.createShelfSyncService().sync(onProgress),
+	);
 	private backgroundRefreshError: string | null = null;
 	private indexRefreshTimer: number | undefined;
 
@@ -128,8 +136,8 @@ export default class WereadShelfPlugin extends Plugin {
 		).open();
 	}
 
-	async syncShelf(): Promise<ShelfSyncResult> {
-		return this.createShelfSyncService().sync();
+	async syncShelf(onProgress?: ShelfSyncProgressListener): Promise<ShelfSyncResult> {
+		return this.shelfSyncCoordinator.sync(onProgress);
 	}
 
 	private async openWeread(item: ShelfItem): Promise<void> {

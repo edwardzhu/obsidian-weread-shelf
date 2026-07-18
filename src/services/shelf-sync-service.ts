@@ -23,6 +23,10 @@ export interface ShelfSyncProgress {
 
 export type ShelfSyncProgressListener = (progress: ShelfSyncProgress) => void;
 
+export type ShelfSyncTask = (
+	onProgress?: ShelfSyncProgressListener,
+) => Promise<ShelfSyncResult>;
+
 interface BookEnrichmentResult {
 	item: ElectronicBook;
 	failures: ShelfSyncResult['failures'];
