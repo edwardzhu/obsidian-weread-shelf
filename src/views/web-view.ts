@@ -18,7 +18,7 @@ export class WereadWebView extends ItemView {
 	}
 
 	getIcon(): string {
-		return 'book-open';
+		return 'library';
 	}
 
 	async onOpen(): Promise<void> {
