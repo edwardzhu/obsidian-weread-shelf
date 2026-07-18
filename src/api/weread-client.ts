@@ -26,9 +26,15 @@ export interface RawShelfAlbum {
 	albumInfoExtra: { lectureReadUpdateTime?: number };
 }
 
+export interface RawShelfArchive {
+	name: string;
+	bookIds: string[];
+}
+
 export interface RawShelfResponse {
 	books: RawShelfBook[];
 	albums: RawShelfAlbum[];
+	archive?: RawShelfArchive[];
 }
 
 export interface RawBookProgressResponse {

@@ -44,6 +44,10 @@ export class ShelfSyncService {
 			version: 1,
 			items: [...bookResults.map((result) => result.item), ...audiobooks],
 			lastSuccessfulSyncAt: this.now(),
+			archives: (shelf.archive ?? []).map((archive) => ({
+				name: archive.name,
+				bookIds: [...archive.bookIds],
+			})),
 		};
 
 		await this.cacheRepository.save(cache);

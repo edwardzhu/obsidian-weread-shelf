@@ -53,6 +53,10 @@ describe('ShelfSyncService', () => {
 				}),
 			]),
 		);
+		expect(result.cache.archives).toEqual([
+			{ name: '正在阅读', bookIds: ['book-1'] },
+			{ name: '收藏', bookIds: ['book-1'] },
+		]);
 		expect(await repository.load()).toEqual(result.cache);
 
 		await service.markAudiobookOpened('album-1');
@@ -187,6 +191,10 @@ class FakeWereadApi implements WereadApi {
 					},
 					albumInfoExtra: { lectureReadUpdateTime: 15 },
 				},
+			],
+			archive: [
+				{ name: '正在阅读', bookIds: ['book-1'] },
+				{ name: '收藏', bookIds: ['book-1'] },
 			],
 		};
 		this.progressFailures = options.progressFailures ?? new Set();
