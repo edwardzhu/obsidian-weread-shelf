@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShelfView } from '../src/views/shelf-view';
 import type { ShelfSyncProgress, ShelfSyncResult } from '../src/services/shelf-sync-service';
 import type { WereadShelfSettings } from '../src/settings';
-import type { ShelfCache } from '../src/types';
+import type { ShelfCache, ShelfItem } from '../src/types';
 
 const settings: WereadShelfSettings = {
 	apiKey: '',
@@ -22,6 +22,7 @@ function createView(apiKey: string): ShelfView {
 		getCache: async () => result.cache,
 		getSettings: () => ({ ...settings, apiKey }),
 		getNoteText: () => new Map(),
+		getAssociatedBookIds: () => new Set<string>(),
 		syncShelf: async () => result,
 		openWeread: async () => {},
 		openOrCreateNote: async () => {},
@@ -32,18 +33,22 @@ function createView(apiKey: string): ShelfView {
 interface FakeElementState {
 	createdDivClasses: string[];
 	createdProgressCount: number;
+	createdSpanTexts: string[];
 }
 
 function createFakeElement(state: FakeElementState = {
 	createdDivClasses: [],
 	createdProgressCount: 0,
+	createdSpanTexts: [],
 }): HTMLElement & {
 	createdDivClasses: string[];
 	createdProgressCount: number;
+	createdSpanTexts: string[];
 } {
 	const element = {
 		createdDivClasses: state.createdDivClasses,
 		get createdProgressCount() { return state.createdProgressCount; },
+		createdSpanTexts: state.createdSpanTexts,
 		textContent: '',
 		max: 0,
 		value: 0,
@@ -59,16 +64,19 @@ function createFakeElement(state: FakeElementState = {
 			}
 			return createFakeElement(state);
 		},
-		createSpan(options?: { cls?: string }) {
+		createSpan(options?: { cls?: string; text?: string }) {
 			if (options?.cls !== undefined) this.createdDivClasses.push(options.cls);
+			if (options?.text !== undefined) this.createdSpanTexts.push(options.text);
 			return createFakeElement(state);
 		},
 		empty() {},
 		removeAttribute() {},
+		addEventListener() {},
 	};
 	return element as unknown as HTMLElement & {
 		createdDivClasses: string[];
 		createdProgressCount: number;
+		createdSpanTexts: string[];
 	};
 }
 
@@ -86,8 +94,9 @@ describe('ShelfView', () => {
 		const syncShelf = vi.fn().mockResolvedValue(result);
 		const view = new ShelfView({} as never, {
 			getCache: async () => result.cache,
-			getSettings: () => settings,
-			getNoteText: () => new Map(),
+				getSettings: () => settings,
+				getNoteText: () => new Map(),
+				getAssociatedBookIds: () => new Set<string>(),
 			syncShelf,
 			openWeread: async () => {},
 			openOrCreateNote: async () => {},
@@ -103,8 +112,9 @@ describe('ShelfView', () => {
 	it('does not rebuild a cached shelf for every sync progress update', () => {
 		const view = new ShelfView({} as never, {
 			getCache: async () => result.cache,
-			getSettings: () => ({ ...settings, apiKey: 'wrk-test' }),
-			getNoteText: () => new Map(),
+				getSettings: () => ({ ...settings, apiKey: 'wrk-test' }),
+				getNoteText: () => new Map(),
+				getAssociatedBookIds: () => new Set<string>(),
 			syncShelf: async () => result,
 			openWeread: async () => {},
 			openOrCreateNote: async () => {},
@@ -126,6 +136,36 @@ describe('ShelfView', () => {
 		internals.updateSyncProgress({ phase: 'enriching', completed: 1, total: 10 });
 
 		expect(renderContent).not.toHaveBeenCalled();
+	});
+
+	it('shows a note badge for an associated book', () => {
+		const view = new ShelfView({} as never, {
+			getCache: async () => result.cache,
+			getSettings: () => ({ ...settings, apiKey: 'wrk-test' }),
+			getNoteText: () => new Map(),
+			getAssociatedBookIds: () => new Set(['book-1']),
+			syncShelf: async () => result,
+			openWeread: async () => {},
+			openOrCreateNote: async () => {},
+			openSettings: () => {},
+		});
+		const parent = createFakeElement();
+		const item: ShelfItem = {
+			id: 'book-1',
+			kind: 'book',
+			title: 'The Book',
+			author: 'Author',
+			coverUrl: 'cover',
+			category: 'History',
+			progress: 0,
+			readingState: 'unread',
+			intro: '',
+		};
+
+		(view as unknown as { renderCard: (parent: HTMLElement, item: ShelfItem) => void })
+			.renderCard(parent as HTMLElement, item);
+
+		expect(parent.createdSpanTexts).toContain('有笔记');
 	});
 
 	it('renders sync progress inside the cached shelf summary', () => {

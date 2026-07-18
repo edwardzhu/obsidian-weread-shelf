@@ -50,6 +50,7 @@ export default class WereadShelfPlugin extends Plugin {
 					syncShelf: (onProgress) => this.syncShelf(onProgress),
 					openWeread: (item) => this.openWeread(item),
 					openOrCreateNote: (item) => this.openOrCreateNote(item),
+					getAssociatedBookIds: () => this.noteIndex.toAssociatedBookIds(),
 					openSettings: () => this.openSettings(),
 				}),
 		);

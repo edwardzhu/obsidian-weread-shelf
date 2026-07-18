@@ -233,7 +233,7 @@
 	padding: 2px 6px;
 }
 
-.weread-shelf__badge--synced {
+.weread-shelf__badge--linked {
 	color: var(--text-accent);
 	border-color: var(--text-accent);
 }

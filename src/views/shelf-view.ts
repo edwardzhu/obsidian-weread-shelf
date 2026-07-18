@@ -22,6 +22,7 @@ export interface ShelfViewDependencies {
 	getCache(): Promise<ShelfCache | null>;
 	getSettings(): WereadShelfSettings;
 	getNoteText(): ReadonlyMap<string, string>;
+	getAssociatedBookIds(): ReadonlySet<string>;
 	syncShelf(onProgress?: ShelfSyncProgressListener): Promise<ShelfSyncResult>;
 	openWeread(item: ShelfItem): Promise<void>;
 	openOrCreateNote(item: ShelfItem): Promise<void>;
@@ -402,8 +403,8 @@ export class ShelfView extends ItemView {
 		info.createDiv({ cls: 'weread-shelf__author', text: item.author });
 
 		const badges = info.createDiv({ cls: 'weread-shelf__badges' });
-		if (this.dependencies.getNoteText().has(item.id)) {
-			badges.createSpan({ cls: 'weread-shelf__badge weread-shelf__badge--synced', text: '已同步' });
+		if (this.dependencies.getAssociatedBookIds().has(item.id)) {
+			badges.createSpan({ cls: 'weread-shelf__badge weread-shelf__badge--linked', text: '有笔记' });
 		}
 		badges.createSpan({ cls: 'weread-shelf__badge', text: item.kind === 'audiobook' ? '有声书' : '图书' });
 		if (item.kind === 'book') {

@@ -48,6 +48,21 @@ describe('AssociatedNoteIndex', () => {
 		expect(index.getText('book-1')).toBe('');
 		expect([...index.toMap().entries()]).toEqual([]);
 	});
+
+	it('restores valid associated book ids when rebuilding the index', async () => {
+		const fakeNoteStore = new FakeNoteStore([
+			{ path: 'Reading/book.md', content: '', frontmatter: {} },
+		]);
+		const index = new AssociatedNoteIndex(fakeNoteStore);
+
+		await index.rebuild(new Map([['book-1', 'Reading/book.md']]));
+
+		expect([...index.toAssociatedBookIds()]).toEqual(['book-1']);
+
+		await index.refreshBook('book-1', undefined);
+
+		expect([...index.toAssociatedBookIds()]).toEqual([]);
+	});
 });
 
 class FakeNoteStore implements NoteStore {
