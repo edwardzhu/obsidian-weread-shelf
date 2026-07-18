@@ -6,6 +6,7 @@ describe('shelf toolbar', () => {
 		expect(FORCE_SYNC_ACTION).toEqual({
 			icon: 'sync',
 			label: '强制刷新书架',
+			className: 'weread-shelf__sync-button',
 		});
 	});
 });

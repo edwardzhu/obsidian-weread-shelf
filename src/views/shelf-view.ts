@@ -260,6 +260,7 @@ export class ShelfView extends ItemView {
 			FORCE_SYNC_ACTION.icon,
 			FORCE_SYNC_ACTION.label,
 			() => this.syncAndRender(),
+			FORCE_SYNC_ACTION.className,
 		);
 	}
 
