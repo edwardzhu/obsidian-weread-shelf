@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ShelfItem } from '../src/types';
+import type { ShelfArchive, ShelfItem } from '../src/types';
 import {
 	filterAndGroupShelf,
 	formatActivityLabel,
@@ -71,6 +71,11 @@ const listeningAudio: ShelfItem = {
 };
 
 const allItems = [book, audio, unreadBook, completedBook, listeningAudio];
+
+const archives: ShelfArchive[] = [
+	{ name: '正在阅读', bookIds: ['book-1', 'book-1', 'book-3'] },
+	{ name: '收藏', bookIds: ['book-1', 'book-3'] },
+];
 
 describe('shelf state', () => {
 	it('maps only 100 percent to completed', () => {
@@ -154,6 +159,47 @@ describe('shelf state', () => {
 		);
 
 		expect(groups[0]?.items.map((item) => item.title)).toEqual(['Aardvark', 'The Book']);
+	});
+
+	it('groups items by archive, repeats multi-group books, and puts ungrouped items last', () => {
+		const groups = filterAndGroupShelf(
+			allItems,
+			{ query: '', type: 'grouped', status: 'all', sort: 'activity' },
+			new Map(),
+			archives,
+		);
+
+		expect(groups.map((group) => group.label)).toEqual(['正在阅读', '收藏', '未分组']);
+		expect(groups.map((group) => group.items.map((item) => item.id))).toEqual([
+			['book-1', 'book-3'],
+			['book-1', 'book-3'],
+			['audio-2', 'audio-1', 'book-2'],
+		]);
+	});
+
+	it('filters before archive grouping and sorts each archive by title when requested', () => {
+		const groups = filterAndGroupShelf(
+			allItems,
+			{ query: '', type: 'grouped', status: 'all', sort: 'title' },
+			new Map(),
+			archives,
+		);
+
+		expect(groups.find((group) => group.label === '收藏')?.items.map((item) => item.title)).toEqual([
+			'Completed',
+			'The Book',
+		]);
+
+		const filteredGroups = filterAndGroupShelf(
+			allItems,
+			{ query: 'Alpha', type: 'grouped', status: 'all', sort: 'activity' },
+			new Map(),
+			archives,
+		);
+
+		expect(filteredGroups).toEqual([
+			{ key: '未分组', label: '未分组', items: [unreadBook] },
+		]);
 	});
 
 	it('places the Not started group after numeric year groups', () => {

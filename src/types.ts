@@ -1,6 +1,6 @@
 export type BookReadingState = 'unread' | 'inProgress' | 'completed';
 export type AudiobookListeningState = 'unheard' | 'listening';
-export type ItemTypeFilter = 'all' | 'books';
+export type ItemTypeFilter = 'all' | 'books' | 'grouped';
 export type StatusFilter = 'all' | 'inProgress' | 'unread' | 'completed';
 export type ShelfSort = 'activity' | 'title';
 
@@ -43,8 +43,14 @@ export interface YearGroup {
 	items: ShelfItem[];
 }
 
+export interface ShelfArchive {
+	name: string;
+	bookIds: string[];
+}
+
 export interface ShelfCache {
 	version: 1;
 	items: ShelfItem[];
 	lastSuccessfulSyncAt: number;
+	archives?: ShelfArchive[];
 }

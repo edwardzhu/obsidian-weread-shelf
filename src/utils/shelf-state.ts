@@ -1,6 +1,7 @@
 import type {
 	AudiobookListeningState,
 	BookReadingState,
+	ShelfArchive,
 	ShelfFilterState,
 	ShelfItem,
 	YearGroup,
@@ -52,6 +53,7 @@ export function filterAndGroupShelf(
 	items: readonly ShelfItem[],
 	filters: ShelfFilterState,
 	noteTextByBookId: ReadonlyMap<string, string>,
+	archives: readonly ShelfArchive[] = [],
 ): YearGroup[] {
 	const filteredItems = items
 		.filter((item) => matchesType(item, filters.type))
@@ -60,8 +62,19 @@ export function filterAndGroupShelf(
 			matchesShelfSearch(item, filters.query, noteTextByBookId.get(item.id) ?? ''),
 		);
 
+	if (filters.type === 'grouped') {
+		return groupByArchives(filteredItems, archives, filters.sort);
+	}
+
+	return groupByActivityYear(filteredItems, filters.sort);
+}
+
+function groupByActivityYear(
+	items: readonly ShelfItem[],
+	sort: ShelfFilterState['sort'],
+): YearGroup[] {
 	const groups = new Map<string, ShelfItem[]>();
-	for (const item of filteredItems) {
+	for (const item of items) {
 		const groupKey = getActivityYearKey(item);
 		const groupItems = groups.get(groupKey) ?? [];
 		groupItems.push(item);
@@ -73,8 +86,45 @@ export function filterAndGroupShelf(
 		.map(([key, groupItems]) => ({
 			key,
 			label: key,
-			items: sortGroupItems(groupItems, filters.sort),
+			items: sortGroupItems(groupItems, sort),
 		}));
+}
+
+function groupByArchives(
+	items: readonly ShelfItem[],
+	archives: readonly ShelfArchive[],
+	sort: ShelfFilterState['sort'],
+): YearGroup[] {
+	const groupedItemIds = new Set<string>();
+	const groups: YearGroup[] = [];
+
+	for (const archive of archives) {
+		const bookIds = new Set(archive.bookIds);
+		const groupItems = items.filter((item) => bookIds.has(item.id));
+		if (groupItems.length === 0) {
+			continue;
+		}
+
+		for (const item of groupItems) {
+			groupedItemIds.add(item.id);
+		}
+		groups.push({
+			key: archive.name,
+			label: archive.name,
+			items: sortGroupItems(groupItems, sort),
+		});
+	}
+
+	const ungroupedItems = items.filter((item) => !groupedItemIds.has(item.id));
+	if (ungroupedItems.length > 0) {
+		groups.push({
+			key: '未分组',
+			label: '未分组',
+			items: sortGroupItems(ungroupedItems, sort),
+		});
+	}
+
+	return groups;
 }
 
 export function formatActivityLabel(item: ShelfItem): string {
