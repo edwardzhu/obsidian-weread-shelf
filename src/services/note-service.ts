@@ -50,6 +50,9 @@ export class NoteService {
 	}
 
 	async associateExistingNote(bookId: string, path: string): Promise<void> {
+		if (await this.noteStore.read(path) === null) {
+			throw new Error(`Missing note: ${path}`);
+		}
 		await this.associations.setPath(bookId, path);
 		await this.noteStore.setFrontmatter(path, { 'weread-book-id': bookId });
 	}

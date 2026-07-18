@@ -115,6 +115,33 @@ describe('NoteService', () => {
 			{ bookId: 'book-2', path: 'Reading/Second Book.md', message: 'reviews failed' },
 		]);
 	});
+
+	it('associates an existing note without changing its body', async () => {
+		const fakeStore = new FakeNoteStore([
+			{ path: 'Reading/Existing.md', content: '# Keep me\n', frontmatter: {} },
+		]);
+		const associations = new MemoryAssociations();
+		const service = new NoteService(new FakeWereadApi(), fakeStore, associations, () => 'Reading');
+
+		await service.associateExistingNote('book-1', 'Reading/Existing.md');
+
+		expect(associations.getPath('book-1')).toBe('Reading/Existing.md');
+		expect(await fakeStore.read('Reading/Existing.md')).toEqual({
+			path: 'Reading/Existing.md',
+			content: '---\nweread-book-id: book-1\n---\n# Keep me\n',
+			frontmatter: { 'weread-book-id': 'book-1' },
+		});
+	});
+
+	it('does not associate a candidate that disappeared', async () => {
+		const associations = new MemoryAssociations();
+		const service = new NoteService(new FakeWereadApi(), new FakeNoteStore(), associations, () => 'Reading');
+
+		await expect(service.associateExistingNote('book-1', 'Reading/Missing.md'))
+			.rejects.toThrow('Missing note: Reading/Missing.md');
+
+		expect(associations.getPath('book-1')).toBeUndefined();
+	});
 });
 
 class MemoryAssociations implements NoteAssociationStore {
