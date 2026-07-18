@@ -172,6 +172,7 @@ export class ShelfView extends ItemView {
 			[
 				{ value: 'all', label: '全部图书' },
 				{ value: 'books', label: '只有书籍' },
+				{ value: 'grouped', label: '仅分组' },
 			],
 			this.filters.type,
 			(type) => {
@@ -230,7 +231,12 @@ export class ShelfView extends ItemView {
 
 
 	private renderGroups(root: HTMLElement, cache: ShelfCache): void {
-		const groups = filterAndGroupShelf(cache.items, this.filters, this.dependencies.getNoteText());
+		const groups = filterAndGroupShelf(
+			cache.items,
+			this.filters,
+			this.dependencies.getNoteText(),
+			cache.archives ?? [],
+		);
 		if (groups.length === 0) {
 			root.createDiv({ cls: 'weread-shelf__empty', text: '没有匹配的书籍。' });
 			return;
@@ -238,7 +244,9 @@ export class ShelfView extends ItemView {
 
 		for (const group of groups) {
 			const section = root.createDiv({ cls: 'weread-shelf__section' });
-			const heading = /^\d{4}$/.test(group.key) ? `${group.label} 年` : group.label;
+			const heading = this.filters.type === 'grouped'
+				? group.label
+				: /^\d{4}$/.test(group.key) ? `${group.label} 年` : group.label;
 			section.createEl('h3', { text: heading });
 			const grid = section.createDiv({ cls: 'weread-shelf__grid' });
 			for (const item of group.items) {
