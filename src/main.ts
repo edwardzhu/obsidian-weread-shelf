@@ -46,7 +46,7 @@ export default class WereadShelfPlugin extends Plugin {
 					getCache: () => this.dataStore.getCache(),
 					getSettings: () => this.dataStore.getSettings(),
 					getNoteText: () => this.noteIndex.toMap(),
-					syncShelf: () => this.syncShelf(),
+					syncShelf: (onProgress) => this.syncShelf(onProgress),
 					openWeread: (item) => this.openWeread(item),
 					openOrCreateNote: (item) => this.openOrCreateNote(item),
 					openSettings: () => this.openSettings(),

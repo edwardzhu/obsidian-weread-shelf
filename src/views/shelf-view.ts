@@ -4,10 +4,15 @@ import {
 	setTooltip,
 	type WorkspaceLeaf,
 } from 'obsidian';
-import type { ShelfSyncResult } from '../services/shelf-sync-service';
+import type {
+	ShelfSyncProgress,
+	ShelfSyncProgressListener,
+	ShelfSyncResult,
+} from '../services/shelf-sync-service';
 import type { WereadShelfSettings } from '../settings';
 import type { ShelfCache, ShelfFilterState, ShelfItem } from '../types';
 import { filterAndGroupShelf } from '../utils/shelf-state';
+import { getShelfSyncProgressViewModel } from '../utils/shelf-sync-progress';
 
 export const SHELF_VIEW_TYPE = 'weread-shelf-view';
 
@@ -15,7 +20,7 @@ export interface ShelfViewDependencies {
 	getCache(): Promise<ShelfCache | null>;
 	getSettings(): WereadShelfSettings;
 	getNoteText(): ReadonlyMap<string, string>;
-	syncShelf(): Promise<ShelfSyncResult>;
+	syncShelf(onProgress?: ShelfSyncProgressListener): Promise<ShelfSyncResult>;
 	openWeread(item: ShelfItem): Promise<void>;
 	openOrCreateNote(item: ShelfItem): Promise<void>;
 	openSettings(): void;
@@ -31,6 +36,12 @@ export class ShelfView extends ItemView {
 	private cache: ShelfCache | null = null;
 	private searchEl: HTMLInputElement | null = null;
 	private contentAreaEl: HTMLElement | null = null;
+	private isLoading = false;
+	private syncProgress: ShelfSyncProgress = {
+		phase: 'fetching',
+		completed: 0,
+		total: 0,
+	};
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -54,17 +65,25 @@ export class ShelfView extends ItemView {
 	async refresh(): Promise<void> {
 		this.filters = { ...this.filters, sort: this.dependencies.getSettings().sort };
 		this.cache = await this.dependencies.getCache();
-		if (this.cache === null) {
-			await this.tryInitialRefresh();
-		}
 		this.searchEl = null;
 		this.contentAreaEl = null;
+		this.isLoading = this.cache === null;
+		if (this.isLoading) {
+			this.syncProgress = { phase: 'fetching', completed: 0, total: 0 };
+		}
 		this.render();
+		if (this.isLoading) {
+			await this.tryInitialRefresh();
+			this.isLoading = false;
+			this.render();
+		}
 	}
 
 	private async tryInitialRefresh(): Promise<void> {
 		try {
-			this.cache = (await this.dependencies.syncShelf()).cache;
+			this.cache = (
+				await this.dependencies.syncShelf((progress) => this.updateSyncProgress(progress))
+			).cache;
 		} catch {
 			this.cache = null;
 		}
@@ -92,6 +111,10 @@ export class ShelfView extends ItemView {
 		}
 
 		if (this.cache === null) {
+			if (this.isLoading) {
+				this.renderSyncProgress(area);
+				return;
+			}
 			this.renderEmpty(area);
 			return;
 		}
@@ -100,10 +123,39 @@ export class ShelfView extends ItemView {
 	}
 
 	private async syncAndRender(): Promise<void> {
+		this.isLoading = true;
+		this.syncProgress = { phase: 'fetching', completed: 0, total: 0 };
+		this.render();
 		try {
-			this.cache = (await this.dependencies.syncShelf()).cache;
+			this.cache = (
+				await this.dependencies.syncShelf((progress) => this.updateSyncProgress(progress))
+			).cache;
 		} finally {
+			this.isLoading = false;
 			this.render();
+		}
+	}
+
+	private updateSyncProgress(progress: ShelfSyncProgress): void {
+		this.syncProgress = progress;
+		if (this.isLoading && this.contentAreaEl !== null) {
+			this.renderContent();
+		}
+	}
+
+	private renderSyncProgress(parent: HTMLElement): void {
+		const viewModel = getShelfSyncProgressViewModel(this.syncProgress);
+		const loading = parent.createDiv({ cls: 'weread-shelf__loading' });
+		loading.createDiv({ cls: 'weread-shelf__loading-label', text: viewModel.label });
+		const progress = loading.createEl('progress', {
+			cls: 'weread-shelf__progress',
+			attr: { 'aria-label': viewModel.label },
+		});
+		if (viewModel.determinate && viewModel.total > 0) {
+			progress.max = viewModel.total;
+			progress.value = viewModel.completed;
+		} else {
+			progress.removeAttribute('value');
 		}
 	}
 
