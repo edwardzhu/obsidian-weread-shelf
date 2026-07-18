@@ -1,5 +1,6 @@
 import {
 	ItemView,
+	Notice,
 	setIcon,
 	setTooltip,
 	type WorkspaceLeaf,
@@ -130,6 +131,8 @@ export class ShelfView extends ItemView {
 			this.cache = (
 				await this.dependencies.syncShelf((progress) => this.updateSyncProgress(progress))
 			).cache;
+		} catch (error) {
+			new Notice(`书架同步失败：${getErrorMessage(error)}`);
 		} finally {
 			this.isLoading = false;
 			this.render();
@@ -388,4 +391,8 @@ export class ShelfView extends ItemView {
 			void this.syncAndRender();
 		});
 	}
+}
+
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }

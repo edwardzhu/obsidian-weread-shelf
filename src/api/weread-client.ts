@@ -108,14 +108,21 @@ export interface WereadApi {
 export type RequestFn = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ status: number; json: unknown }>;
 
 const defaultRequest: RequestFn = async (url, init) => {
-	const response = await requestUrl({
-		url,
-		method: init.method,
-		headers: init.headers,
-		body: init.body,
-		throw: false,
-	});
-	return { status: response.status, json: response.json };
+	try {
+		const response = await requestUrl({
+			url,
+			method: init.method,
+			headers: init.headers,
+			body: init.body,
+			throw: false,
+		});
+		return { status: response.status, json: response.json };
+	} catch (error) {
+		if (isEmptyJsonError(error)) {
+			throw new WereadGatewayError(-1, 'Gateway returned an empty response');
+		}
+		throw error;
+	}
 };
 
 export class WereadClient implements WereadApi {
@@ -233,4 +240,8 @@ export class WereadClient implements WereadApi {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isEmptyJsonError(error: unknown): boolean {
+	return error instanceof SyntaxError && error.message === 'Unexpected end of JSON input';
 }

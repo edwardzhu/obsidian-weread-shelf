@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { requestUrl } from 'obsidian';
 import { WereadGatewayError, WereadUpgradeRequiredError } from '../src/api/errors';
 import { WereadClient, type RequestFn } from '../src/api/weread-client';
 
@@ -35,6 +36,16 @@ describe('WereadClient', () => {
 			mockRequestFn({ upgrade_info: { message: 'upgrade' } }),
 		);
 		await expect(upgrade.getShelf()).rejects.toBeInstanceOf(WereadUpgradeRequiredError);
+	});
+
+	it('converts an empty gateway response into a readable error', async () => {
+		vi.mocked(requestUrl).mockRejectedValueOnce(new SyntaxError('Unexpected end of JSON input'));
+		const client = new WereadClient('key');
+
+		await expect(client.getShelf()).rejects.toMatchObject({
+			name: 'WereadGatewayError',
+			message: 'Gateway returned an empty response',
+		});
 	});
 
 	it('paginates notebook books with a top-level lastSort cursor', async () => {
