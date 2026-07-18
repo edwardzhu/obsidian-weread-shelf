@@ -12,6 +12,7 @@ import type {
 } from '../services/shelf-sync-service';
 import type { WereadShelfSettings } from '../settings';
 import type { ShelfCache, ShelfFilterState, ShelfItem } from '../types';
+import { FORCE_SYNC_ACTION } from '../ui/shelf-toolbar';
 import { filterAndGroupShelf } from '../utils/shelf-state';
 import { getShelfSyncProgressViewModel } from '../utils/shelf-sync-progress';
 
@@ -225,8 +226,8 @@ export class ShelfView extends ItemView {
 			filters,
 			'书籍类型',
 			[
-				{ value: 'all', label: '全部图书' },
-				{ value: 'books', label: '只有书籍' },
+				{ value: 'all', label: '全部' },
+				{ value: 'books', label: '仅图书' },
 				{ value: 'grouped', label: '仅分组' },
 			],
 			this.filters.type,
@@ -253,6 +254,12 @@ export class ShelfView extends ItemView {
 		this.renderIconButton(controls, 'settings', '打开插件设置', () =>
 			this.dependencies.openSettings(),
 			'weread-shelf__settings-button',
+		);
+		this.renderIconButton(
+			controls,
+			FORCE_SYNC_ACTION.icon,
+			FORCE_SYNC_ACTION.label,
+			() => this.syncAndRender(),
 		);
 	}
 
