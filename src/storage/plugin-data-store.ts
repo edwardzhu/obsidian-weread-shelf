@@ -21,7 +21,17 @@ export class PluginDataStore implements NoteAssociationStore {
 	) {}
 
 	async initialize(): Promise<WereadShelfSettings> {
-		const loaded = (await this.loadPluginData()) ?? {};
+		let loaded: PersistedPluginData | null;
+		try {
+			loaded = await this.loadPluginData();
+		} catch (error) {
+			if (!isEmptyJsonError(error)) {
+				throw error;
+			}
+			loaded = null;
+		}
+
+		loaded ??= {};
 		this.settings = mergeSettings(loaded.settings);
 		this.data = {
 			settings: cloneSettings(this.settings),
@@ -79,4 +89,8 @@ function cloneSettings(settings: WereadShelfSettings): WereadShelfSettings {
 		...settings,
 		associations: { ...settings.associations },
 	};
+}
+
+function isEmptyJsonError(error: unknown): boolean {
+	return error instanceof SyntaxError && error.message === 'Unexpected end of JSON input';
 }
