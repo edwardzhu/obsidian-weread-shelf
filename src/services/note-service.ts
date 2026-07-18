@@ -136,11 +136,6 @@ export class NoteService {
 		}
 
 		const defaultPath = makeDefaultNotePath(this.notesFolder(), book.title, book.id);
-		const sameTitleNote = await this.noteStore.read(defaultPath);
-		if (sameTitleNote !== null) {
-			return { note: await this.associateAndRead(book.id, defaultPath), created: false };
-		}
-
 		return { note: await this.createAndAssociate(book, choice, defaultPath), created: true };
 	}
 

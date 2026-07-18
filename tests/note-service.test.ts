@@ -116,6 +116,19 @@ describe('NoteService', () => {
 		]);
 	});
 
+	it('creates a title-based note with a book-id suffix when the title path exists', async () => {
+		const fakeStore = new FakeNoteStore([
+			{ path: 'Reading/The Book.md', content: '# Unrelated\n', frontmatter: {} },
+		]);
+		const service = new NoteService(new FakeWereadApi(), fakeStore, new MemoryAssociations(), () => 'Reading');
+
+		const created = await service.ensureNote(book, { kind: 'blank' });
+
+		expect(created.path).toBe('Reading/The Book - book-1.md');
+		expect(created.content).toContain('# The Book\n');
+		expect((await fakeStore.read('Reading/The Book.md'))?.content).toBe('# Unrelated\n');
+	});
+
 	it('associates an existing note without changing its body', async () => {
 		const fakeStore = new FakeNoteStore([
 			{ path: 'Reading/Existing.md', content: '# Keep me\n', frontmatter: {} },
