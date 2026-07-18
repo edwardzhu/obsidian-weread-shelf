@@ -15,6 +15,7 @@ import { ObsidianNoteStore } from './storage/obsidian-note-store';
 import { PluginDataStore } from './storage/plugin-data-store';
 import type { ShelfItem } from './types';
 import { CreateNoteModal } from './ui/create-note-modal';
+import { findSimilarNotePaths } from './utils/note-candidates';
 import { SHELF_VIEW_TYPE, ShelfView } from './views/shelf-view';
 import { WEREAD_WEB_VIEW_TYPE, WereadWebView } from './views/web-view';
 import { getPcUrl } from './utils/parser';
@@ -158,18 +159,33 @@ export default class WereadShelfPlugin extends Plugin {
 			return;
 		}
 
-		const templates = await this.loadTemplates();
-		new CreateNoteModal(
-			this.app,
-			{ book: item, candidatePaths: [], purpose: 'single' },
-			templates,
-			async (choice, existingPath) => {
-				const note = await this.createNoteService().ensureNote(item, choice, existingPath);
-				await this.noteIndex.refreshBook(item.id, note.path);
-				await this.openMarkdown(note.path);
-				await this.refreshShelfViews();
-			},
-		).open();
+		try {
+			const candidatePaths = await this.findCandidatePaths(item);
+			const templates = await this.loadTemplates();
+			new CreateNoteModal(
+				this.app,
+				{ book: item, candidatePaths, purpose: 'single' },
+				templates,
+				async (choice, existingPath) => {
+					try {
+						if (existingPath !== undefined) {
+							await this.createNoteService().associateExistingNote(item.id, existingPath);
+							await this.noteIndex.refreshBook(item.id, existingPath);
+							await this.openMarkdown(existingPath);
+						} else {
+							const note = await this.createNoteService().ensureNote(item, choice);
+							await this.noteIndex.refreshBook(item.id, note.path);
+							await this.openMarkdown(note.path);
+						}
+						await this.refreshShelfViews();
+					} catch (error) {
+						new Notice(`笔记操作失败：${getErrorMessage(error)}`);
+					}
+				},
+			).open();
+		} catch (error) {
+			new Notice(`无法查找可用笔记：${getErrorMessage(error)}`);
+		}
 	}
 
 	private openSettings(): void {
@@ -210,6 +226,11 @@ export default class WereadShelfPlugin extends Plugin {
 	private async loadTemplates(): Promise<Array<{ path: string; content: string; frontmatter: Record<string, unknown> }>> {
 		const folder = this.dataStore.getSettings().templateFolder;
 		return folder === '' ? [] : this.noteStore.listMarkdown(folder);
+	}
+
+	private async findCandidatePaths(item: ShelfItem): Promise<string[]> {
+		const notes = await this.noteStore.listMarkdown(this.dataStore.getSettings().notesFolder);
+		return findSimilarNotePaths(notes, item.title);
 	}
 
 	private async openMarkdown(path: string): Promise<boolean> {
