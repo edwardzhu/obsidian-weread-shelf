@@ -13,6 +13,16 @@ export interface ShelfSyncResult {
 	failures: Array<{ itemId: string; operation: 'progress' | 'info'; message: string }>;
 }
 
+export type ShelfSyncPhase = 'fetching' | 'enriching' | 'saving' | 'complete';
+
+export interface ShelfSyncProgress {
+	phase: ShelfSyncPhase;
+	completed: number;
+	total: number;
+}
+
+export type ShelfSyncProgressListener = (progress: ShelfSyncProgress) => void;
+
 interface BookEnrichmentResult {
 	item: ElectronicBook;
 	failures: ShelfSyncResult['failures'];
@@ -26,15 +36,30 @@ export class ShelfSyncService {
 		private readonly concurrency = 4,
 	) {}
 
-	async sync(): Promise<ShelfSyncResult> {
+	async sync(onProgress?: ShelfSyncProgressListener): Promise<ShelfSyncResult> {
+		onProgress?.({ phase: 'fetching', completed: 0, total: 0 });
 		const [previousCache, shelf] = await Promise.all([
 			this.cacheRepository.load(),
 			this.api.getShelf(),
 		]);
 		const previousItems = new Map(previousCache?.items.map((item) => [item.id, item]));
+		const totalBooks = shelf.books.length;
+		let completedBooks = 0;
+		onProgress?.({ phase: 'enriching', completed: 0, total: totalBooks });
 
-		const bookResults = await mapWithConcurrency(shelf.books, this.concurrency, (book) =>
-			this.enrichBook(book, previousItems.get(book.bookId)),
+		const bookResults = await mapWithConcurrency(
+			shelf.books,
+			this.concurrency,
+			async (book) => {
+				const result = await this.enrichBook(book, previousItems.get(book.bookId));
+				completedBooks += 1;
+				onProgress?.({
+					phase: 'enriching',
+					completed: completedBooks,
+					total: totalBooks,
+				});
+				return result;
+			},
 		);
 		const audiobooks = shelf.albums.map((album) =>
 			this.normalizeAudiobook(album, previousItems.get(album.albumInfo.albumId)),
@@ -50,7 +75,9 @@ export class ShelfSyncService {
 			})),
 		};
 
+		onProgress?.({ phase: 'saving', completed: totalBooks, total: totalBooks });
 		await this.cacheRepository.save(cache);
+		onProgress?.({ phase: 'complete', completed: totalBooks, total: totalBooks });
 		return { cache, failures };
 	}
 
@@ -79,35 +106,38 @@ export class ShelfSyncService {
 
 		let progress = previousBook?.progress ?? 0;
 		let lastActivityAt = previousBook?.lastActivityAt ?? rawBook.readUpdateTime;
-		try {
-			const progressResponse = await this.api.getBookProgress(rawBook.bookId);
-			progress = progressResponse.book.progress;
-			lastActivityAt = progressResponse.book.updateTime ?? rawBook.readUpdateTime;
-		} catch (error) {
-			failures.push({
-				itemId: rawBook.bookId,
-				operation: 'progress',
-				message: getErrorMessage(error),
-			});
-		}
-
 		let title = rawBook.title;
 		let author = rawBook.author;
 		let coverUrl = rawBook.cover;
 		let intro = previousBook?.intro ?? '';
 		let deepLink = rawBook.deepLink;
-		try {
-			const infoResponse = await this.api.getBookInfo(rawBook.bookId);
-			title = infoResponse.title;
-			author = infoResponse.author;
-			coverUrl = infoResponse.cover;
-			intro = infoResponse.intro ?? previousBook?.intro ?? '';
-			deepLink = infoResponse.deepLink ?? rawBook.deepLink;
-		} catch (error) {
+
+		const [progressResult, infoResult] = await Promise.allSettled([
+			this.api.getBookProgress(rawBook.bookId),
+			this.api.getBookInfo(rawBook.bookId),
+		]);
+		if (progressResult.status === 'fulfilled') {
+			progress = progressResult.value.book.progress;
+			lastActivityAt = progressResult.value.book.updateTime ?? rawBook.readUpdateTime;
+		} else {
+			failures.push({
+				itemId: rawBook.bookId,
+				operation: 'progress',
+				message: getErrorMessage(progressResult.reason),
+			});
+		}
+
+		if (infoResult.status === 'fulfilled') {
+			title = infoResult.value.title;
+			author = infoResult.value.author;
+			coverUrl = infoResult.value.cover;
+			intro = infoResult.value.intro ?? previousBook?.intro ?? '';
+			deepLink = infoResult.value.deepLink ?? rawBook.deepLink;
+		} else {
 			failures.push({
 				itemId: rawBook.bookId,
 				operation: 'info',
-				message: getErrorMessage(error),
+				message: getErrorMessage(infoResult.reason),
 			});
 		}
 

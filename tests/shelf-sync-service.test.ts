@@ -10,7 +10,10 @@ import type {
 } from '../src/api/weread-client';
 import type { ShelfCache } from '../src/types';
 import type { ShelfCacheRepository } from '../src/services/shelf-cache-repository';
-import { ShelfSyncService } from '../src/services/shelf-sync-service';
+import {
+	ShelfSyncService,
+	type ShelfSyncProgress,
+} from '../src/services/shelf-sync-service';
 
 describe('ShelfSyncService', () => {
 	it('normalizes and caches books and audiobooks', async () => {
@@ -64,6 +67,54 @@ describe('ShelfSyncService', () => {
 		expect((await repository.load())?.items.find((item) => item.id === 'album-1')).toMatchObject({
 			hasUnreadUpdate: false,
 		});
+	});
+
+	it('reports progress for fetching, enriching, saving, and completing a sync', async () => {
+		const progress: ShelfSyncProgress[] = [];
+		const service = new ShelfSyncService(
+			new FakeWereadApi(),
+			new MemoryShelfCacheRepository(null),
+			() => 10,
+		);
+
+		await service.sync((update) => progress.push(update));
+
+		expect(progress).toEqual([
+			{ phase: 'fetching', completed: 0, total: 0 },
+			{ phase: 'enriching', completed: 0, total: 1 },
+			{ phase: 'enriching', completed: 1, total: 1 },
+			{ phase: 'saving', completed: 1, total: 1 },
+			{ phase: 'complete', completed: 1, total: 1 },
+		]);
+	});
+
+	it('enriches book progress and info concurrently', async () => {
+		let infoStarted = false;
+		const api = new FakeWereadApi({
+			async getBookProgressOverride() {
+				await Promise.resolve();
+				if (!infoStarted) {
+					throw new Error('info request did not start concurrently');
+				}
+				return { book: { progress: 45, updateTime: 50 } };
+			},
+			async getBookInfoOverride(bookId) {
+				infoStarted = true;
+				return {
+					bookId,
+					title: 'Book One',
+					author: 'Author',
+					cover: 'cover',
+					intro: 'Searchable intro',
+					deepLink: `weread://book/${bookId}`,
+				};
+			},
+		});
+		const service = new ShelfSyncService(api, new MemoryShelfCacheRepository(null), () => 10);
+
+		const result = await service.sync();
+
+		expect(result.failures).toEqual([]);
 	});
 
 	it('continues after enrichment failures and preserves previous values', async () => {
@@ -171,12 +222,14 @@ class FakeWereadApi implements WereadApi {
 	private readonly progressFailures: ReadonlySet<string>;
 	private readonly infoFailures: ReadonlySet<string>;
 	private readonly getBookProgressOverride?: (bookId: string) => Promise<RawBookProgressResponse>;
+	private readonly getBookInfoOverride?: (bookId: string) => Promise<RawBookInfoResponse>;
 
 	constructor(options: {
 		shelf?: RawShelfResponse;
 		progressFailures?: ReadonlySet<string>;
 		infoFailures?: ReadonlySet<string>;
 		getBookProgressOverride?: (bookId: string) => Promise<RawBookProgressResponse>;
+		getBookInfoOverride?: (bookId: string) => Promise<RawBookInfoResponse>;
 	} = {}) {
 		this.shelf = options.shelf ?? {
 			books: [rawBook('book-1', 'Book One')],
@@ -200,6 +253,7 @@ class FakeWereadApi implements WereadApi {
 		this.progressFailures = options.progressFailures ?? new Set();
 		this.infoFailures = options.infoFailures ?? new Set();
 		this.getBookProgressOverride = options.getBookProgressOverride;
+		this.getBookInfoOverride = options.getBookInfoOverride;
 	}
 
 	async getShelf(): Promise<RawShelfResponse> {
@@ -217,6 +271,9 @@ class FakeWereadApi implements WereadApi {
 	}
 
 	async getBookInfo(bookId: string): Promise<RawBookInfoResponse> {
+		if (this.getBookInfoOverride !== undefined) {
+			return this.getBookInfoOverride(bookId);
+		}
 		if (this.infoFailures.has(bookId)) {
 			throw new Error('info failed');
 		}
