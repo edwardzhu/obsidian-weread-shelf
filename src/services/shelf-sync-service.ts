@@ -156,7 +156,7 @@ export class ShelfSyncService {
 				...optionalDeepLink(deepLink),
 				...optionalLastActivity(lastActivityAt),
 				progress,
-				readingState: toBookReadingState(progress),
+				readingState: toBookReadingState(progress, rawBook.finishReading),
 				intro,
 			},
 			failures,

@@ -69,6 +69,26 @@ describe('ShelfSyncService', () => {
 		});
 	});
 
+	it('uses the shelf completion flag for books below 100 percent', async () => {
+		const repository = new MemoryShelfCacheRepository(null);
+		const service = new ShelfSyncService(
+			new FakeWereadApi({
+				shelf: {
+					books: [{ ...rawBook('book-1', 'Book One'), finishReading: 1 }],
+					albums: [],
+				},
+			}),
+			repository,
+		);
+
+		const result = await service.sync();
+
+		expect(result.cache.items.find((item) => item.id === 'book-1')).toMatchObject({
+			progress: 45,
+			readingState: 'completed',
+		});
+	});
+
 	it('reports progress for fetching, enriching, saving, and completing a sync', async () => {
 		const progress: ShelfSyncProgress[] = [];
 		const service = new ShelfSyncService(

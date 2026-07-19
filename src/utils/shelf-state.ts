@@ -9,8 +9,8 @@ import type {
 
 const NOT_STARTED_KEY = 'Not started';
 
-export function toBookReadingState(progress: number): BookReadingState {
-	if (progress === 100) {
+export function toBookReadingState(progress: number, finishReading?: number): BookReadingState {
+	if (progress === 100 || finishReading === 1) {
 		return 'completed';
 	}
 	if (progress <= 0) {

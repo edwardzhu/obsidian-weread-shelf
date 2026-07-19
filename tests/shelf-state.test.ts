@@ -85,6 +85,10 @@ describe('shelf state', () => {
 		expect(toBookReadingState(100)).toBe('completed');
 	});
 
+	it('maps a manually completed book to completed', () => {
+		expect(toBookReadingState(45, 1)).toBe('completed');
+	});
+
 	it('does not infer audiobook completion from serial completion', () => {
 		expect(toAudiobookListeningState(0)).toBe('unheard');
 		expect(toAudiobookListeningState(1768003200)).toBe('listening');
