@@ -182,18 +182,15 @@ export class ShelfView extends ItemView {
 	}
 
 	private renderStats(parent: HTMLElement, cache: ShelfCache): void {
-		const notesCount = this.dependencies.getNoteText().size;
 		const now = Date.now();
 		const recentCutoff = 30 * 86400000;
 		const yearSet = new Set<number>();
 		let books = 0;
-		let recentCount = 0;
 
 		for (const item of cache.items) {
 			if (item.kind === 'book') books++;
 			if (item.lastActivityAt && item.lastActivityAt > 0) {
 				yearSet.add(new Date(item.lastActivityAt * 1000).getUTCFullYear());
-				if (now - item.lastActivityAt * 1000 < recentCutoff) recentCount++;
 			}
 		}
 
@@ -203,10 +200,8 @@ export class ShelfView extends ItemView {
 
 		const stats = parent.createDiv({ cls: 'weread-shelf__stats' });
 		this.renderStatItem(stats, 'book-open', `${books} 本书`);
-		this.renderStatItem(stats, 'pencil', `${notesCount} 个笔记`);
 		this.renderStatItem(stats, 'calendar', `${yearSet.size} 年`);
 		this.renderStatItem(stats, 'clock', syncLabel);
-		this.renderStatItem(stats, 'refresh-cw', `${recentCount} 本`);
 		if (this.isLoading) {
 			this.renderSummarySyncProgress(stats);
 		}
@@ -403,7 +398,7 @@ export class ShelfView extends ItemView {
 		info.createDiv({ cls: 'weread-shelf__author', text: item.author });
 
 		const badges = info.createDiv({ cls: 'weread-shelf__badges' });
-		if (this.dependencies.getAssociatedBookIds().has(item.id)) {
+		if (this.dependencies.getAssociatedBookIds().has(String(item.id))) {
 			badges.createSpan({ cls: 'weread-shelf__badge weread-shelf__badge--linked', text: '有笔记' });
 		}
 		badges.createSpan({ cls: 'weread-shelf__badge', text: item.kind === 'audiobook' ? '有声书' : '图书' });

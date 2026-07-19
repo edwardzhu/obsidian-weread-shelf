@@ -38,7 +38,14 @@ export default class WereadShelfPlugin extends Plugin {
 		await this.dataStore.initialize();
 		this.noteStore = new ObsidianNoteStore(this.app);
 		this.noteIndex = new AssociatedNoteIndex(this.noteStore);
-		await this.rebuildNoteIndex();
+		// Defer the initial index build until the vault has finished loading;
+		// building inline during onload reads an empty vault and drops every
+		// association, leaving the "有笔记" badge missing until an unrelated refresh.
+		this.app.workspace.onLayoutReady(() =>
+			this.rebuildNoteIndex()
+				.then(() => this.refreshShelfViews())
+				.catch((error: unknown) => this.handleBackgroundRefreshFailure(error)),
+		);
 
 		this.registerView(
 			SHELF_VIEW_TYPE,
@@ -245,7 +252,15 @@ export default class WereadShelfPlugin extends Plugin {
 	}
 
 	private async rebuildNoteIndex(): Promise<void> {
-		await this.noteIndex.rebuild(new Map(Object.entries(this.dataStore.getSettings().associations)));
+		const settings = this.dataStore.getSettings();
+		const notes = await this.noteStore.listMarkdown(settings.notesFolder);
+		const associations = new Map(Object.entries(settings.associations));
+		const resolvedAssociations = await this.noteIndex.rebuild(associations, notes);
+		for (const [bookId, path] of resolvedAssociations) {
+			if (associations.get(bookId) !== path) {
+				await this.dataStore.setPath(bookId, path);
+			}
+		}
 	}
 
 	private async refreshShelfViews(): Promise<void> {
@@ -302,6 +317,7 @@ export default class WereadShelfPlugin extends Plugin {
 
 	private handleBackgroundRefreshFailure(error: unknown): void {
 		this.backgroundRefreshError = getErrorMessage(error);
+		console.error('WeRead shelf background refresh failed:', error);
 	}
 }
 

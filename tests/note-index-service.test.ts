@@ -63,6 +63,64 @@ describe('AssociatedNoteIndex', () => {
 
 		expect([...index.toAssociatedBookIds()]).toEqual([]);
 	});
+
+	it('normalizes numeric book ids used during the current session', async () => {
+		const fakeNoteStore = new FakeNoteStore([
+			{ path: 'Reading/book.md', content: 'note', frontmatter: {} },
+		]);
+		const index = new AssociatedNoteIndex(fakeNoteStore);
+
+		await index.refreshBook(123 as unknown as string, 'Reading/book.md');
+
+		expect([...index.toAssociatedBookIds()]).toEqual(['123']);
+		expect(index.getText(123 as unknown as string)).toContain('note');
+	});
+
+	it('restores missing associations from note frontmatter', async () => {
+		const note = {
+			path: 'Reading/book.md',
+			content: 'note',
+			frontmatter: { 'weread-book-id': 'book-1' },
+		};
+		const fakeNoteStore = new FakeNoteStore([note]);
+		const index = new AssociatedNoteIndex(fakeNoteStore);
+
+		const resolvedAssociations = await index.rebuild(new Map(), [note]);
+
+		expect([...index.toAssociatedBookIds()]).toEqual(['book-1']);
+		expect(resolvedAssociations.get('book-1')).toBe('Reading/book.md');
+	});
+
+	it('repairs a stale persisted path from note frontmatter', async () => {
+		const note = {
+			path: 'Reading/renamed-book.md',
+			content: 'note',
+			frontmatter: { 'weread-book-id': 'book-1' },
+		};
+		const fakeNoteStore = new FakeNoteStore([note]);
+		const index = new AssociatedNoteIndex(fakeNoteStore);
+
+		const resolvedAssociations = await index.rebuild(
+			new Map([['book-1', 'Reading/old-book.md']]),
+			[note],
+		);
+
+		expect(resolvedAssociations.get('book-1')).toBe('Reading/renamed-book.md');
+		expect([...index.toAssociatedBookIds()]).toEqual(['book-1']);
+	});
+
+	it('restores an association from raw frontmatter when metadata is not ready', async () => {
+		const note = {
+			path: 'Reading/book.md',
+			content: '---\nweread-book-id: book-1\n---\n# Book\n',
+			frontmatter: {},
+		};
+		const index = new AssociatedNoteIndex(new FakeNoteStore([note]));
+
+		await index.rebuild(new Map(), [note]);
+
+		expect([...index.toAssociatedBookIds()]).toEqual(['book-1']);
+	});
 });
 
 class FakeNoteStore implements NoteStore {

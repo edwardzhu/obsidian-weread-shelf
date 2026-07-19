@@ -168,6 +168,36 @@ describe('ShelfView', () => {
 		expect(parent.createdSpanTexts).toContain('有笔记');
 	});
 
+	it('shows a note badge when a cached numeric id is restored as a string', () => {
+		const view = new ShelfView({} as never, {
+			getCache: async () => result.cache,
+			getSettings: () => ({ ...settings, apiKey: 'wrk-test' }),
+			getNoteText: () => new Map(),
+			getAssociatedBookIds: () => new Set(['123']),
+			syncShelf: async () => result,
+			openWeread: async () => {},
+			openOrCreateNote: async () => {},
+			openSettings: () => {},
+		});
+		const parent = createFakeElement();
+		const item: ShelfItem = {
+			id: 123 as unknown as string,
+			kind: 'book',
+			title: 'The Book',
+			author: 'Author',
+			coverUrl: 'cover',
+			category: 'History',
+			progress: 0,
+			readingState: 'unread',
+			intro: '',
+		};
+
+		(view as unknown as { renderCard: (parent: HTMLElement, item: ShelfItem) => void })
+			.renderCard(parent as HTMLElement, item);
+
+		expect(parent.createdSpanTexts).toContain('有笔记');
+	});
+
 	it('renders sync progress inside the cached shelf summary', () => {
 		const view = createView('wrk-test');
 		const parent = createFakeElement();

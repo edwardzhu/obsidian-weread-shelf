@@ -1,7 +1,23 @@
 import { vi } from 'vitest';
 
 export class App {}
-export class Plugin {}
+export class Plugin {
+	constructor(
+		public readonly app: unknown,
+		public readonly manifest: unknown,
+	) {}
+
+	addCommand(command: unknown): unknown { return command; }
+	addRibbonIcon(): unknown { return { addClass() {} }; }
+	addSettingTab(): void {}
+	registerView(): void {}
+	registerEvent(): void {}
+	registerDomEvent(): void {}
+	registerInterval(): void {}
+	register(): void {}
+	async loadData(): Promise<unknown> { return null; }
+	async saveData(): Promise<void> {}
+}
 export class ItemView {
 	contentEl = {} as HTMLElement;
 
@@ -78,7 +94,13 @@ export class FuzzySuggestModal {
 	open() {}
 	onClose() {}
 }
-export class TFolder {
+export class TAbstractFile {
+	path = '';
+}
+export class TFile extends TAbstractFile {
+	extension = 'md';
+}
+export class TFolder extends TAbstractFile {
 	path = '/';
 	children: unknown[] = [];
 }
